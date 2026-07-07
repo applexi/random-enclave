@@ -8,9 +8,11 @@ const NSM_RNG : &str = "nsm-hwrng";
 
 pub fn configure_rng() -> io::Result<bool>{
     let current = fs::read_to_string(RNG_CURRENT)?;
+    println!("current: {current}");
     if current.trim() == NSM_RNG { return Ok(false); };
 
     let avail = fs::read_to_string(RNG_AVAIL)?;
+    println!("avail: {avail}");
     if ! avail.split_whitespace().any(|rng| rng == NSM_RNG) {
         return Err(Error::new(ErrorKind::NotFound, format!("nsm-hwrng not available, only available rngs = {avail}")));
     }
