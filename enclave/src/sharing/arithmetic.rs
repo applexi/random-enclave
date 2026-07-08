@@ -13,7 +13,7 @@ impl SharingMode for Arithmetic {
     fn add(a: Self::Share, b: Self::Share) -> u64 {
         a.wrapping_add(b)
     }
-    fn sub(sum: Self::Share, a: Self::Share) -> u64 {
-        sum.wrapping_sub(a)
+    fn sub(a: Self::Share, b: Self::Share) -> u64 {
+        a.wrapping_sub(b)
     }
 }

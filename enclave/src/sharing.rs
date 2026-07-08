@@ -36,7 +36,7 @@ impl<T: SharingMode> AdditiveSharing<T> {
             .map(|_| T::random(rng))
             .collect::<Result<Vec<T::Share>, R::Error>>()?;
         let sum = T::sum(a.iter().copied());
-        let a_n = T::sub(sum, secret);
+        let a_n = T::sub(secret, sum);
         a.push(a_n);
         Ok(a)
     }
