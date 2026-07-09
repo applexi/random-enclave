@@ -6,7 +6,9 @@ RUN apk add --no-cache musl-dev
 
 WORKDIR /build
 COPY Cargo.toml Cargo.lock ./
+COPY common ./common
 COPY enclave ./enclave
+COPY host ./host
 
 RUN cargo build --release --locked -p enclave
 
