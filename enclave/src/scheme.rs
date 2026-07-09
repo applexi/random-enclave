@@ -2,6 +2,7 @@ use rand::TryCryptoRng;
 use crate::{ArithmeticSharing, BinarySharing, DEFAULT_N};
 use crate::{ArithShare, BitShare, random_arith};
 
+/// Generates a random [`ArithShare`] and returns [`DEFAULT_N`] correlated arithmetic and binary shares in indexed form
 pub fn enclave_session<R: TryCryptoRng> (arithmetic: &ArithmeticSharing, binary: &BinarySharing, rng: &mut R) -> Result<Vec<(ArithShare, Vec<BitShare>)>, R::Error> {
     let secret = random_arith(rng)?;
     let num_bits = ArithShare::BITS;

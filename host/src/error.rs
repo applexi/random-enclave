@@ -18,12 +18,6 @@ impl From<&str> for Error {
     }
 }
 
-impl From<String> for Error {
-    fn from(_: String) -> Self {
-        Error::String
-    }
-}
-
 impl From<std::num::ParseIntError> for Error {
     fn from(_: std::num::ParseIntError) -> Self {
         Error::Parse
