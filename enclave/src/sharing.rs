@@ -6,8 +6,14 @@ mod binary;
 
 pub type ArithmeticSharing = AdditiveSharing<arithmetic::Arithmetic>;
 pub type BinarySharing = AdditiveSharing<binary::Binary>;
+pub type ArithShare = <arithmetic::Arithmetic as SharingMode>::Share;
+pub type BitShare = <binary::Binary as SharingMode>::Share;
 
-const DEFAULT_N : usize = 5;
+pub fn random_arith<R: TryCryptoRng>(rng: &mut R) -> Result<ArithShare, R::Error> {
+    arithmetic::Arithmetic::random(rng)
+}
+
+pub const DEFAULT_N : usize = 5;
 
 pub struct AdditiveSharing<T: SharingMode> {
     n: usize,
@@ -20,10 +26,10 @@ pub trait SharingMode {
     fn zero() -> Self::Share;
     fn random<T: TryCryptoRng>(rng: &mut T) -> Result<Self::Share, T::Error>;
     fn add(a: Self::Share, b: Self::Share) -> Self::Share;
-    fn sub(sum: Self::Share, a: Self::Share) -> Self::Share;
+    fn sub(a: Self::Share, b: Self::Share) -> Self::Share;
 
-    fn sum<I: IntoIterator<Item = Self::Share>>(iter: I) -> Self::Share {
-        iter.into_iter().fold(Self::zero(), Self::add)
+    fn sum(shares: &[Self::Share]) -> Self::Share {
+        shares.iter().fold(Self::zero(), |acc, share| Self::add(acc, *share))
     }
 }
 
@@ -35,13 +41,13 @@ impl<T: SharingMode> AdditiveSharing<T> {
         let mut a: Vec<T::Share> = (0..self.n - 1)
             .map(|_| T::random(rng))
             .collect::<Result<Vec<T::Share>, R::Error>>()?;
-        let sum = T::sum(a.iter().copied());
+        let sum = T::sum(&a);
         let a_n = T::sub(secret, sum);
         a.push(a_n);
         Ok(a)
     }
     pub fn reconstruct(&self, shares: &[T::Share]) -> T::Share {
         assert!(shares.len() == self.n);
-        T::sum(shares.iter().copied())
+        T::sum(shares)
     }
 }

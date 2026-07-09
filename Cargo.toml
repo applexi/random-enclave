@@ -1,3 +1,7 @@
 [workspace]
 resolver = "3"
-members = ["enclave"]
+members = ["common","enclave", "host"]
+
+[workspace.dependencies]
+pontifex = { version = "1.1", default-features = false }
+tokio = { version = "1.52.3", features = ["rt-multi-thread", "macros"] }

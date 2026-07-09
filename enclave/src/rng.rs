@@ -6,14 +6,14 @@ const RNG_CURRENT : &str = "/sys/devices/virtual/misc/hw_random/rng_current";
 const RNG_AVAIL : &str = "/sys/class/misc/hw_random/rng_available";
 const NSM_RNG : &str = "nsm-hwrng";
 
-pub fn configure_rng() -> io::Result<bool>{
+pub fn configure_rng() -> Result<bool, Error>{
     let current = fs::read_to_string(RNG_CURRENT)?;
     let avail = fs::read_to_string(RNG_AVAIL)?;
     println!("current: {current}");
     println!("avail: {avail}");
     if current.trim() == NSM_RNG { return Ok(false); };
     if ! avail.split_whitespace().any(|rng| rng == NSM_RNG) {
-        return Err(Error::new(ErrorKind::NotFound, format!("nsm-hwrng not available, only available rngs = {avail}")));
+        return Result::Err(Error::new(ErrorKind::NotFound, format!("{NSM_RNG} not found, only {avail}")))
     }
 
     fs::write(RNG_CURRENT, NSM_RNG)?;
