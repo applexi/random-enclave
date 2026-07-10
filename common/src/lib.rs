@@ -6,10 +6,13 @@ use pontifex::Request;
 pub const ENCLAVE_PORT: u32 = 1000;
 
 #[derive(Serialize, Deserialize)]
-pub struct SharesRequest;
+pub struct SharesRequest {
+    pub session_id: u64,
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct SharesResponse {
+    pub attestation: Vec<u8>,
     pub shares: Vec<(u64, Vec<bool>)>,
 }
 
@@ -20,7 +23,7 @@ impl Request for SharesRequest {
 
 impl fmt::Display for SharesResponse {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "(response: {:?})", self.shares)
+        write!(f, "(response: {:?})\n", self.shares)
     }
 }
 

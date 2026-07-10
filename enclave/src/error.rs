@@ -4,6 +4,7 @@ pub enum Error {
     SysRng,
     Server,
     String,
+    NSM,
 }
 
 impl From<std::io::Error> for Error {

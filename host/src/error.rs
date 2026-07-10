@@ -1,9 +1,14 @@
+use std::array::TryFromSliceError;
+
+
 #[derive(Debug)]
 pub enum Error {
     IO,
     String,
     Parse,
     Client,
+    Attestation,
+    AttestParse,
 }
 
 impl From<std::io::Error> for Error {
@@ -27,5 +32,17 @@ impl From<std::num::ParseIntError> for Error {
 impl From<pontifex::client::Error> for Error {
     fn from(_: pontifex::client::Error) -> Self {
         Error::Client
+    }
+}
+
+impl From<pontifex::AttestationError> for Error {
+    fn from(_: pontifex::AttestationError) -> Self {
+        Error::Attestation
+    }
+}
+
+impl From<TryFromSliceError> for Error {
+    fn from(_: TryFromSliceError) -> Self {
+        Error::AttestParse
     }
 }
