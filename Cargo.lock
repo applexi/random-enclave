@@ -423,6 +423,7 @@ version = "0.1.0"
 dependencies = [
  "aws-nitro-enclaves-cose",
  "common",
+ "libc",
  "openssl",
  "pontifex",
  "tokio",

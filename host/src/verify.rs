@@ -1,4 +1,4 @@
-use std::os::unix::raw::time_t;
+use libc::time_t;
 use aws_nitro_enclaves_cose::{CoseSign1, crypto::Openssl};
 use openssl::{stack::Stack, x509::{X509, X509StoreContext, store::X509StoreBuilder, verify::{X509VerifyFlags, X509VerifyParam}}};
 use pontifex::{AttestationDoc, SecureModule, nsm::Digest};
@@ -10,7 +10,7 @@ const AWS_ROOT_CERT_PATH: &str = "host/root.pem";
 /// Given a binary blob attestation, return an attestation document if valid AWS attestation, otherwise error
 /// 
 /// Follows NSM documentation: 
-/// https://github.com/aws/aws-nitro-enclaves-nsm-api/blob/1993eeb0620d35f5cefc50b17638b432325328f9/docs/attestation_process.md
+/// <https://github.com/aws/aws-nitro-enclaves-nsm-api/blob/1993eeb0620d35f5cefc50b17638b432325328f9/docs/attestation_process.md>
 pub fn verify(attestation_blob: &[u8]) -> Result<(), Error>{
     // 1. Decode CBOR and map to COSE_Sign1 structure and 2. Extract Attestation Document from COSE_Sign1 structure
     let attestation = SecureModule::parse_raw_attestation_doc(attestation_blob)?;

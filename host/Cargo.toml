@@ -9,4 +9,5 @@ tokio = { workspace = true }
 common = { path = "../common" }
 aws-nitro-enclaves-cose = "0.5.2"
 openssl = "0.10.81"
+libc = "0.2.186"
 
