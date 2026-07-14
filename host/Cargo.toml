@@ -7,3 +7,6 @@ edition = "2024"
 pontifex = { workspace = true, features = ["client", "nsm"] }
 tokio = { workspace = true }
 common = { path = "../common" }
+aws-nitro-enclaves-cose = "0.5.2"
+openssl = "0.10.81"
+

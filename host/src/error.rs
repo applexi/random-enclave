@@ -1,5 +1,3 @@
-use std::array::TryFromSliceError;
-
 
 #[derive(Debug)]
 pub enum Error {
@@ -9,6 +7,9 @@ pub enum Error {
     Client,
     Attestation,
     AttestParse,
+    AttestVerify,
+    ErrorStack,
+    Cose,
 }
 
 impl From<std::io::Error> for Error {
@@ -41,8 +42,20 @@ impl From<pontifex::AttestationError> for Error {
     }
 }
 
-impl From<TryFromSliceError> for Error {
-    fn from(_: TryFromSliceError) -> Self {
+impl From<std::array::TryFromSliceError> for Error {
+    fn from(_: std::array::TryFromSliceError) -> Self {
         Error::AttestParse
+    }
+}
+
+impl From<openssl::error::ErrorStack> for Error {
+    fn from(_: openssl::error::ErrorStack) -> Self {
+        Error::ErrorStack
+    }
+}
+
+impl From<aws_nitro_enclaves_cose::error::CoseError> for Error {
+    fn from(_: aws_nitro_enclaves_cose::error::CoseError) -> Self {
+        Error::Cose
     }
 }

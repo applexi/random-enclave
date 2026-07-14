@@ -1,7 +1,8 @@
-use pontifex::{ConnectionDetails, SecureModule, send};
+use pontifex::{ConnectionDetails, send};
 use common::{SharesRequest, ENCLAVE_PORT};
 use std::{env, io};
 mod error;
+mod verify;
 use error::Error;
 
 #[tokio::main]
@@ -23,17 +24,10 @@ async fn main() -> Result<(), Error> {
                 let response = send(connection, &request).await?;
                 println!("Obtained enclave response: {response}");
 
-                // NOTE: need to add verification process, right now attestation is not verified
-
-                // dummy print parse and print attestation
-                let attestation = SecureModule::parse_raw_attestation_doc(&response.attestation)?;
-                let Some(user_data_byes) = attestation.user_data else {
-                    return Result::Err(Error::Attestation);
-                };
-                let user_data: [u8; 8] = user_data_byes.as_ref().try_into()?;
-                let user_data = u64::from_be_bytes(user_data);
-                let pcrs = attestation.pcrs;
-                println!("Attestation contains user data {user_data} and pcrs {pcrs:?} ");
+                // Verify attestation
+                let attestation_blob = &response.attestation;
+                verify::verify(attestation_blob)
+                    .expect("verification gone wrong");
             }
             "quit" => break,
             _ => println!("Please ")

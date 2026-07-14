@@ -22,7 +22,7 @@ pub fn configure_rng() -> Result<bool, Error>{
     if current.trim() == NSM_RNG { return Ok(false); };
 
     if ! avail.split_whitespace().any(|rng| rng == NSM_RNG) {
-        return Result::Err(Error::new(ErrorKind::NotFound, format!("{NSM_RNG} not found, only {avail}")))
+        return Err(Error::new(ErrorKind::NotFound, format!("{NSM_RNG} not found, only {avail}")))
     }
 
     fs::write(RNG_CURRENT, NSM_RNG)?;
