@@ -4,7 +4,7 @@ use rand::TryCryptoRng;
 pub struct Arithmetic;
 
 impl SharingMode for Arithmetic {
-    type Share = u64;
+    type Share = crate::ArithShare;
 
     fn zero() -> Self::Share { 0 }
     fn random<T: TryCryptoRng>(rng: &mut T) -> Result<Self::Share, T::Error> {

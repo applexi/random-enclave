@@ -1,14 +1,13 @@
 use rand::{TryCryptoRng, rand_core::UnwrapErr};
 use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
-use common::{Share, DEFAULT_N};
 
-use crate::{ArithmeticSharing, BinarySharing};
-use crate::{ArithShare, BitShare, random_arith};
+use crate::{ArithmeticSharing, BinarySharing, Share, ArithShare, BitShare, DEFAULT_N};
+use crate::random_arith;
 use crate::Error;
 
-/// 
+/// For each call, generates a random signing keypair and secret [`ArithShare`]. From that secret, returns signed correlated arithmetic and binary shares.
 pub fn enclave_session<R: TryCryptoRng> (arithmetic: &ArithmeticSharing, binary: &BinarySharing, rng: &mut R) -> Result<(VerifyingKey, Vec<Signature>, Vec<Share>), Error> {
-    // Generate random pulic and private signing keypair
+    // Generate random public and private signing keypair
     let mut infallible_rng = UnwrapErr(rng);
     let enclave_keypair = SigningKey::generate(&mut infallible_rng);
     let enclave_pk = enclave_keypair.verifying_key();

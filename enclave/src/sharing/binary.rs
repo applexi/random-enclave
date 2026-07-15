@@ -4,7 +4,7 @@ use rand::TryCryptoRng;
 pub struct Binary;
 
 impl SharingMode for Binary {
-    type Share = bool;
+    type Share = crate::BitShare;
 
     fn zero() -> Self::Share { false }
     fn random<T: TryCryptoRng>(rng: &mut T) -> Result<Self::Share, T::Error> {

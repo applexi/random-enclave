@@ -17,11 +17,16 @@ impl Request for SessionRequest {
     type Response = SessionResponse;
 }
 
+/// A share of type [`u64`]
+pub type ArithShare = u64;
+/// A share of type [`bool`]
+pub type BitShare = bool;
+
 /// The raw share structure that has yet to be signed
 #[derive(Serialize, Deserialize)]
 pub struct Share {
-    pub ct: u64,
-    pub ctbit: Vec<bool>,
+    pub ct: ArithShare,
+    pub ctbit: Vec<BitShare>,
 }
 
 /// Enclave output given to host instance
