@@ -1,5 +1,3 @@
-use std::fmt;
-
 use serde::{Deserialize, Serialize};
 use serde_bytes::{ByteArray, ByteBuf};
 use pontifex::Request;
@@ -8,6 +6,7 @@ pub const ENCLAVE_PORT: u32 = 1000;
 /// Consistent and fixed number of parties
 pub const DEFAULT_N : usize = 5;
 
+/// Enclave input sent by host instance
 #[derive(Serialize, Deserialize)]
 pub struct SessionRequest {
     pub session_id: u64,
@@ -25,6 +24,7 @@ pub struct Share {
     pub ctbit: Vec<bool>,
 }
 
+/// Enclave output given to host instance
 #[derive(Serialize, Deserialize)]
 pub struct SessionResponse {
     pub attestation: ByteBuf,
@@ -32,8 +32,8 @@ pub struct SessionResponse {
     pub raw_shares: Vec<Share>,
 }
 
-impl fmt::Display for SessionResponse {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl std::fmt::Display for SessionResponse {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "(response: {:?})\n", self.signed_shares)
     }
 }
