@@ -9,3 +9,7 @@ rand = "0.10.2"
 pontifex = { workspace = true, features = ["server", "nsm"] }
 tokio = { workspace = true }
 common = { path = "../common" }
+ed25519-dalek = { workspace = true, features = ["rand_core"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_cbor = { workspace = true }
+serde_bytes = { workspace = true }

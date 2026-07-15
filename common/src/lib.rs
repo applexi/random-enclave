@@ -1,29 +1,40 @@
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
+use serde_bytes::{ByteArray, ByteBuf};
 use pontifex::Request;
 
 pub const ENCLAVE_PORT: u32 = 1000;
+/// Consistent and fixed number of parties
+pub const DEFAULT_N : usize = 5;
 
 #[derive(Serialize, Deserialize)]
-pub struct SharesRequest {
+pub struct SessionRequest {
     pub session_id: u64,
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct SharesResponse {
-    pub attestation: Vec<u8>,
-    pub shares: Vec<(u64, Vec<bool>)>,
-}
-
-impl Request for SharesRequest {
+impl Request for SessionRequest {
     const ROUTE_ID: &'static str = "shares_request_v1";
-    type Response = SharesResponse;
+    type Response = SessionResponse;
 }
 
-impl fmt::Display for SharesResponse {
+/// The raw share structure that has yet to be signed
+#[derive(Serialize, Deserialize)]
+pub struct Share {
+    pub ct: u64,
+    pub ctbit: Vec<bool>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SessionResponse {
+    pub attestation: ByteBuf,
+    pub signed_shares: Vec<ByteArray<64>>,
+    pub raw_shares: Vec<Share>,
+}
+
+impl fmt::Display for SessionResponse {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "(response: {:?})\n", self.shares)
+        write!(f, "(response: {:?})\n", self.signed_shares)
     }
 }
 

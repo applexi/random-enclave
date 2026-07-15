@@ -1,23 +1,23 @@
 use getrandom::SysRng;
 use pontifex::{SecureModule, Router};
+use serde_bytes::{ByteArray, ByteBuf};
 
-use common::{SharesRequest, SharesResponse, ENCLAVE_PORT};
-use enclave::{ArithmeticSharing, BinarySharing, enclave_session};
+use common::{SessionRequest, SessionResponse, ENCLAVE_PORT};
+use enclave::{ArithmeticSharing, BinarySharing, enclave_session, Error};
 
-mod error;
-mod attest;
+mod nsm_helper;
 
 #[tokio::main]
-async fn main() -> Result<(), error::Error>{
+async fn main() -> Result<(), Error>{
     // Configure enclave randomness to NSM's trusted entropy pool
     enclave::rng::configure_rng()?;
     // Connect to NSM
     let nsm = SecureModule::try_init_global().await?;
-    attest::check_nsm(&nsm)?; // NOTE: maybe best to move into router for lifetime security?
+    nsm_helper::check_nsm(&nsm)?; // NOTE: maybe best to move into router for lifetime security?
     
     // NOTE: need to do encryption/decryption & signing
     let router = Router::new()
-        .route::<SharesRequest, _, _>(|_state, request| async move {
+        .route::<SessionRequest, _, _>(|_state, request| async move {
             let nsm = SecureModule::global();
             let arithmetic = ArithmeticSharing::new();
             let binary = BinarySharing::new();
@@ -26,14 +26,20 @@ async fn main() -> Result<(), error::Error>{
             // Obtain session parameters
             let session_id = request.session_id;
 
-            // Generate a random and obtain its correlating arithmetic and binary shares
-            let shares = enclave_session(&arithmetic, &binary, &mut rng)
+            // Generate a random and obtain signed shares
+            let (enclave_pk, signed_shares, raw_shares) = enclave_session(&arithmetic, &binary, &mut rng)
                 .expect("rng failure");
-            // Request an attestation
-            let attestation = nsm.raw_attest(Some(session_id.to_be_bytes().to_vec()), None::<Vec<u8>>, None::<Vec<u8>>)
-                .expect("attestation failure");
+            let signed_shares: Vec<ByteArray<64>> = signed_shares
+                .iter()
+                .map(|share| ByteArray::from(share.to_bytes()))
+                .collect();
 
-            SharesResponse{ attestation, shares }
+            // Request an attestation
+            let attestation = nsm.raw_attest(Some(session_id.to_be_bytes().to_vec()), None::<Vec<u8>>, Some(enclave_pk.as_bytes()))
+                .expect("attestation failure");
+            let attestation = ByteBuf::from(attestation);
+
+            SessionResponse{ attestation, signed_shares, raw_shares }
         });
 
     router.serve(ENCLAVE_PORT).await?;

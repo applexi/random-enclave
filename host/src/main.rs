@@ -1,8 +1,10 @@
 use pontifex::{ConnectionDetails, send};
-use common::{SharesRequest, ENCLAVE_PORT};
+use common::{SessionRequest, ENCLAVE_PORT};
+use serde_bytes::{ByteArray, ByteBuf};
+use ed25519_dalek::Signature;
 use std::{env, io};
 mod error;
-mod verify;
+mod verify_scheme;
 use error::Error;
 
 #[tokio::main]
@@ -20,13 +22,20 @@ async fn main() -> Result<(), Error> {
         input = input.trim().to_lowercase();
         match input.as_str() {
             "random" => {
-                let request = SharesRequest{ session_id: 5 };
+                let session_id = 5;
+                let request = SessionRequest{ session_id };
                 let response = send(connection, &request).await?;
                 println!("Obtained enclave response: {response}");
 
                 // Verify attestation
-                let attestation_blob = &response.attestation;
-                verify::verify(attestation_blob)
+                let attestation_blob = &ByteBuf::into_vec(response.attestation);
+                let signed_shares: Vec<Signature> = response.signed_shares 
+                    .iter()
+                    .map(|share| Signature::from_bytes(&ByteArray::into_array(*share)))
+                    .collect();
+                let raw_shares = response.raw_shares;
+
+                verify_scheme::verify_session(attestation_blob, signed_shares, raw_shares, session_id)
                     .expect("verification gone wrong");
             }
             "quit" => break,

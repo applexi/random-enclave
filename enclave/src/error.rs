@@ -1,9 +1,14 @@
+use std::convert::Infallible;
+
 #[derive(Debug)]
 pub enum Error {
     IO,
     SysRng,
     Server,
     String,
+    Infallible,
+    Rng,
+    Serde,
 }
 
 impl From<std::io::Error> for Error {
@@ -27,5 +32,17 @@ impl From<pontifex::server::Error> for Error {
 impl From<&str> for Error {
     fn from(_: &str) -> Self {
         Error::String
+    }
+}
+
+impl From<Infallible> for Error {
+    fn from(_: Infallible) -> Self {
+        Error::Infallible
+    }
+}
+
+impl From<serde_cbor::Error> for Error {
+    fn from(_: serde_cbor::Error) -> Self {
+        Error::Serde
     }
 }

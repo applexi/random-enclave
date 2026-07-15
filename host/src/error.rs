@@ -10,6 +10,8 @@ pub enum Error {
     AttestVerify,
     ErrorStack,
     Cose,
+    ED25519,
+    Serde,
 }
 
 impl From<std::io::Error> for Error {
@@ -57,5 +59,17 @@ impl From<openssl::error::ErrorStack> for Error {
 impl From<aws_nitro_enclaves_cose::error::CoseError> for Error {
     fn from(_: aws_nitro_enclaves_cose::error::CoseError) -> Self {
         Error::Cose
+    }
+}
+
+impl From<ed25519_dalek::ed25519::Error> for Error {
+    fn from(_: ed25519_dalek::ed25519::Error) -> Self {
+        Error::ED25519
+    }
+}
+
+impl From<serde_cbor::Error> for Error {
+    fn from(_: serde_cbor::Error) -> Self {
+        Error::Serde
     }
 }

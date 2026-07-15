@@ -4,9 +4,6 @@ use rand::TryCryptoRng;
 mod arithmetic;
 mod binary;
 
-/// Consistent and fixed number of shares
-pub const DEFAULT_N : usize = 5;
-
 /// An additive sharing scheme for [`ArithShare`]
 pub type ArithmeticSharing = AdditiveSharing<arithmetic::Arithmetic>;
 /// An additive sharing scheme for [`BitShare`]
@@ -44,7 +41,7 @@ pub struct AdditiveSharing<T: SharingMode> {
 
 impl<T: SharingMode> AdditiveSharing<T> {
     pub fn new() -> Self {
-        AdditiveSharing{ n: DEFAULT_N, _sharing: PhantomData }
+        AdditiveSharing{ n: common::DEFAULT_N, _sharing: PhantomData }
     }
     /// Returns [`DEFAULT_N`] shares from a given secret
     pub fn share<R: TryCryptoRng>(&self, rng: &mut R, secret: T::Share) -> Result<Vec<T::Share>, R::Error> {

@@ -1,7 +1,6 @@
 use pontifex::{SecureModule, nsm::{Request, Response}};
 use std::io::{Error, ErrorKind};
 
-
 pub fn check_nsm(nsm: &SecureModule) -> Result<(), Error> {
     let nsm_config = nsm.send(Request::DescribeNSM);
     let Response::DescribeNSM { version_major, locked_pcrs, digest, ..} = nsm_config else {
