@@ -35,7 +35,7 @@ async fn main() -> Result<(), Error>{
                 .collect();
 
             // Request an attestation
-            let attestation = nsm.raw_attest(Some(session_id.to_be_bytes().to_vec()), None::<Vec<u8>>, Some(enclave_pk.as_bytes()))
+            let attestation = nsm.raw_attest(None::<Vec<u8>>, Some(session_id.to_be_bytes().to_vec()), Some(enclave_pk.as_bytes()))
                 .expect("attestation failure");
             let attestation = ByteBuf::from(attestation);
 
