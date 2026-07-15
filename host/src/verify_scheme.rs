@@ -1,4 +1,4 @@
-use std::iter::zip;
+use std::{iter::zip};
 
 use ed25519_dalek::{Signature, Verifier, VerifyingKey, PUBLIC_KEY_LENGTH};
 use libc::time_t;
@@ -33,8 +33,10 @@ fn verify_enclave_attestation(attestation: &AttestationDoc, signed_shares: Vec<S
 /// Verifies that all pcrs [`AttestationDoc::pcrs`] are non-zero, and checks pcr3 and pcr8 for correctness
 fn verify_pcrs(attestation: &AttestationDoc) -> Result<(), Error> {
     let pcrs = &attestation.pcrs;
-    for (_, pcr) in pcrs {
-        if pcr.iter().all(|byte| *byte == 0) { return Err(Error::AttestVerify); }
+    for (i, pcr) in pcrs {
+        // PCRs 0-2 and 8 should not be zero
+        if (*i < 3 || *i == 8) &&
+        pcr.iter().all(|byte| *byte == 0) { return Err(Error::AttestVerify(format!("PCR {i} is all zero"))); }
     }
     let _pcr3 = &pcrs[&3];
     let _pcr8 = &pcrs[&8];
@@ -47,11 +49,11 @@ fn verify_pcrs(attestation: &AttestationDoc) -> Result<(), Error> {
 /// Requires [`AttestationDoc::nonce`] to exist and be of type [`u64`]
 fn verify_session_id(attestation: &AttestationDoc, session_id: u64) -> Result<(), Error> {
     let Some(nonce) = &attestation.nonce else {
-        return Err(Error::AttestVerify)
+        return Err(Error::AttestVerify("Attestation's nonce field does not exist.".to_string()))
     };
     let nonce: &[u8; 8] = (&nonce[..]).try_into()?;
     let nonce = u64::from_be_bytes(*nonce);
-    if nonce != session_id { return Err(Error::AttestVerify); }
+    if nonce != session_id { return Err(Error::AttestVerify(format!("Attestation's nonce field {nonce} does not match session ID {session_id}"))); }
     Ok(())
 }
 
@@ -61,14 +63,14 @@ fn verify_session_id(attestation: &AttestationDoc, session_id: u64) -> Result<()
 /// 
 /// Requires [`AttestationDoc::public_key`] to exist and be of type ed25519 [`VerifyingKey`]
 fn verify_enclave_signatures(attestation: &AttestationDoc, signed_shares: Vec<Signature>, raw_shares: Vec<Share>) -> Result<(), Error>{
-    if signed_shares.len() != raw_shares.len() { return Err(Error::AttestVerify); }
+    if signed_shares.len() != raw_shares.len() { return Err(Error::AttestVerify(format!("Signed shares {signed_shares:?} and raw shares {raw_shares:?} lengths do not match."))); }
     let Some(enclave_pk) = &attestation.public_key else {
-        return Err(Error::AttestVerify)
+        return Err(Error::AttestVerify("Attestation's public_key field does not exist.".to_string()))
     };
     let enclave_pk: &[u8; PUBLIC_KEY_LENGTH]  = (&enclave_pk[..]).try_into()?;
     let enclave_pk = VerifyingKey::from_bytes(enclave_pk)?;
     let shares = zip(signed_shares.iter(), raw_shares.iter());
-    if shares.len() != DEFAULT_N { return Err(Error::AttestVerify); }
+    if shares.len() != DEFAULT_N { return Err(Error::AttestVerify(format!("Shares' length does not match {DEFAULT_N}"))); }
 
     for (signature, message) in shares {
         let message = serde_cbor::to_vec(message)?;
@@ -83,7 +85,7 @@ fn verify_enclave_signatures(attestation: &AttestationDoc, signed_shares: Vec<Si
 /// <https://github.com/aws/aws-nitro-enclaves-nsm-api/blob/1993eeb0620d35f5cefc50b17638b432325328f9/docs/attestation_process.md>
 fn verify_aws_attestation(attestation_blob: &[u8], attestation: &AttestationDoc) -> Result<(), Error>{
     // 2.2 Check attesation's fields' sizes (Note steps 1 and 2 are already done by pontifex parsing)
-    if !validate_content(&attestation) { return Err(Error::AttestVerify); }
+    if !validate_content(&attestation) { return Err(Error::AttestVerify("Attestation's field sizes are incorrect".to_string())); }
     // 3. Verify certificates chain
     verify_certificate_chain(&attestation)?;
     // 4. Ensure Signed Attestation Document was correctly signed
@@ -141,9 +143,9 @@ fn verify_certificate_chain(attestation: &AttestationDoc) -> Result<(), Error> {
     // AWS cabundle order: {root_cert, interm_1, ..., interm_n} (target_cert)
     let (root_raw, interm_raws) = attestation.cabundle
         .split_first()
-        .ok_or(Error::AttestVerify)?;
+        .ok_or(Error::AttestVerify("Attestation's CA bundle cannot be split into (root cert, intermediate certs)".to_string()))?;
     let root_cert = X509::from_der(root_raw)?;
-    if root_cert != aws_root_cert { return Err(Error::AttestVerify); }
+    if root_cert != aws_root_cert { return Err(Error::AttestVerify("Root certificate in attestation's CA bundle does not match AWS root certificate".to_string())); }
 
     // Certificate chain order: (target_cert) {interm_n, ..., interm_1} (root)
     let mut interm_certs = Stack::new()?;

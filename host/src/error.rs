@@ -7,11 +7,20 @@ pub enum Error {
     Client,
     Attestation,
     AttestParse,
-    AttestVerify,
+    AttestVerify(String),
     ErrorStack,
     Cose,
     ED25519,
     Serde,
+}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Error::AttestVerify(msg) => write!(f, "Attestation verification error: {msg}"),
+            _ => write!(f, "{self:?}")
+        }
+    }
 }
 
 impl From<std::io::Error> for Error {

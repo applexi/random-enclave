@@ -7,7 +7,7 @@ pub const ENCLAVE_PORT: u32 = 1000;
 pub const DEFAULT_N : usize = 5;
 
 /// Enclave input sent by host instance
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct SessionRequest {
     pub session_id: u64,
 }
@@ -23,14 +23,14 @@ pub type ArithShare = u64;
 pub type BitShare = bool;
 
 /// The raw share structure that has yet to be signed
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Share {
     pub ct: ArithShare,
     pub ctbit: Vec<BitShare>,
 }
 
 /// Enclave output given to host instance
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct SessionResponse {
     pub attestation: ByteBuf,
     pub signed_shares: Vec<ByteArray<64>>,
