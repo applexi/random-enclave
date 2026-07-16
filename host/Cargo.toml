@@ -14,3 +14,5 @@ libc = "0.2.186"
 ed25519-dalek = { workspace = true }
 serde_cbor = { workspace = true }
 serde_bytes = { workspace = true }
+clap = { version = "4.6.2", features = ["derive"] }
+hex = "0.4.3"

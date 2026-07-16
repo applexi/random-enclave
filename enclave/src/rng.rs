@@ -14,7 +14,7 @@ const NSM_RNG : &str = "nsm-hwrng";
 /// 
 /// # Errors
 /// This function will error if:
-/// * The `RNG_Current` and `RNG_AVAIL` paths are incorrect
+/// * The internal `RNG_Current` and `RNG_AVAIL` paths are incorrect
 /// * NSM hwrng is not available
 pub fn configure_rng() -> Result<bool, Error>{
     let current = fs::read_to_string(RNG_CURRENT)?;

@@ -1,50 +1,68 @@
+//! Given an attestation and output from the TEE scheme, verifies that it is a valid AWS attestation, and that the output is "correct"
+//! - Relies on an internal `AWS_ROOT_CERT_PATH`, and assumes it contains the correct public AWS root certificate
+//! 
+//! This module contains:
+//! - AWS valid attestation verification (based on NSM documentation <https://github.com/aws/aws-nitro-enclaves-nsm-api/blob/1993eeb0620d35f5cefc50b17638b432325328f9/docs/attestation_process.md>)
+//! - Enclave scheme verification (output signed by enclave, correct session ID, correct PCRs)
+
 use std::{iter::zip};
 use libc::time_t;
+use hex;
 use ed25519_dalek::{Signature, Verifier, VerifyingKey, PUBLIC_KEY_LENGTH};
 use aws_nitro_enclaves_cose::{CoseSign1, crypto::Openssl};
 use openssl::{stack::Stack, x509::{X509, X509StoreContext, store::X509StoreBuilder, verify::{X509VerifyFlags, X509VerifyParam}}};
 use pontifex::{AttestationDoc, SecureModule, nsm::Digest};
 
-use crate::{Error, Share, DEFAULT_N};
+use crate::{Error, Share, SessionInput, DEFAULT_N};
 
 const AWS_ROOT_CERT_PATH: &str = "host/root.pem";
 
-/// Given a binary blob attestation, return OK(()) if valid AWS attestation and if the attestation's measurements are expected respective to the TEE scheme
-pub fn verify_session(attestation_blob: &[u8], signed_shares: Vec<Signature>, raw_shares: Vec<Share>, session_id: u64) -> Result<(), Error> {
+/// Given a binary blob attestation, checks if valid AWS attestation and if the attestation's measurements are expected respective to the enclave scheme
+pub fn verify_session(attestation_blob: &[u8], signed_shares: Vec<Signature>, raw_shares: Vec<Share>, session_input: SessionInput) -> Result<(), Error> {
     let attestation = SecureModule::parse_raw_attestation_doc(attestation_blob)?;
     verify_aws_attestation(attestation_blob, &attestation)?;
-    println!("Attestation is a valid AWS Nitro attestation!");
-    verify_enclave_attestation(&attestation, signed_shares, raw_shares, session_id)?;
-    println!("Attestation is valid according to TEE scheme!");
+    verify_enclave_attestation(&attestation, signed_shares, raw_shares, session_input)?;
     Ok(())
 }
 
 /// Given an [`AttestationDoc`], checks if attestation is session and scheme correct, and if output is attested by the attestation
-fn verify_enclave_attestation(attestation: &AttestationDoc, signed_shares: Vec<Signature>, raw_shares: Vec<Share>, session_id: u64) -> Result<(), Error>{
+fn verify_enclave_attestation(attestation: &AttestationDoc, signed_shares: Vec<Signature>, raw_shares: Vec<Share>, session_input: SessionInput) -> Result<(), Error>{
+    println!("- Enclave scheme verification");
     verify_enclave_signatures(attestation, signed_shares, raw_shares)?;
-    verify_session_id(attestation, session_id)?;
-    verify_pcrs(attestation)?;
+    println!("-- Verified enclave's output was signed by the public key in the enclave's attestation!");
+    verify_session_id(attestation, session_input.session_id)?;
+    println!("-- Verified attestation's session ID is {:?}!", session_input.session_id);
+    verify_pcrs(attestation, session_input.pcr3, session_input.pcr8)?;
+    println!("-- Verified attestation's PCRs are nonzero (and correct if random request included both PCR fields)!");
     // TODO: check if party public keys are consensus set
     Ok(())
 }
 
-/// Verifies that all pcrs [`AttestationDoc::pcrs`] are non-zero, and checks pcr3 and pcr8 for correctness
-fn verify_pcrs(attestation: &AttestationDoc) -> Result<(), Error> {
+/// Verifies that all [`pcrs`][`AttestationDoc::pcrs`] are non-zero, and checks pcr3 and pcr8 for correctness
+fn verify_pcrs(attestation: &AttestationDoc, expected_pcr3: String, expected_pcr8: String) -> Result<(), Error> {
     let pcrs = &attestation.pcrs;
     for (i, pcr) in pcrs {
         // PCRs 0-2 and 8 should not be zero
         if (*i < 3 || *i == 8) &&
         pcr.iter().all(|byte| *byte == 0) { return Err(Error::AttestVerify(format!("PCR {i} is all zero"))); }
     }
-    let _pcr3 = &pcrs[&3];
-    let _pcr8 = &pcrs[&8];
-    // TODO: check pcr3 and pcr8
+    let actual_pcr3: &[u8] = &pcrs[&3];
+    let actual_pcr8: &[u8] = &pcrs[&8];
+    // TODO: change pcr3 and pcr8 to be required rather than optional as it is currently
+    if expected_pcr3 != String::default() && expected_pcr8 != String::default() {
+        let expected_pcr3 = hex::decode(expected_pcr3.trim())?;
+        let expected_pcr8 = hex::decode(expected_pcr8.trim())?;
+        if actual_pcr3.as_ref() != expected_pcr3.as_slice() || actual_pcr8.as_ref() != expected_pcr8.as_slice() {
+            return Err(Error::AttestVerify(format!("Attestation pcr3 {:?} doesn't match expected pcr3 {:?}, or attestation pcr8 {:?} doesn't match expected pcr8 {:?}", 
+                                                    actual_pcr3.as_ref(), expected_pcr3.as_slice(), actual_pcr8.as_ref(), expected_pcr8.as_slice())));
+        }
+    }
     Ok(())
 }
 
-/// Verifies [`AttestationDoc::nonce`] is equal to given session ID
+/// Verifies that the attestation's [`nonce`][`AttestationDoc::nonce`] is equal to given session ID
 /// 
-/// Requires [`AttestationDoc::nonce`] to exist and be of type [`u64`]
+/// Requires [`nonce`][`AttestationDoc::nonce`] to exist and be of type [`u64`]
 fn verify_session_id(attestation: &AttestationDoc, session_id: u64) -> Result<(), Error> {
     let Some(nonce) = &attestation.nonce else {
         return Err(Error::AttestVerify("Attestation's nonce field does not exist.".to_string()))
@@ -55,11 +73,11 @@ fn verify_session_id(attestation: &AttestationDoc, session_id: u64) -> Result<()
     Ok(())
 }
 
-/// Given raw_shares (Vec<[`Share`]>) and signed_shares (Vec<[`Signature`]>), verifies the shares were signed with [`AttestationDoc::public_key`] 
+/// Given `raw_shares` (Vec<[`Share`]>) and `signed_shares` (Vec<[`Signature`]>), verifies the shares were signed with the attestaton's [`public key`][`AttestationDoc::public_key`] 
 /// 
-/// Checks that len(raw_shares) == len(signed_shares) == [`DEFAULT_N`]
+/// Checks that `len(raw_shares) == len(signed_shares) == `[`DEFAULT_N`]
 /// 
-/// Requires [`AttestationDoc::public_key`] to exist and be of type ed25519 [`VerifyingKey`]
+/// Requires [`public key`][`AttestationDoc::public_key`] to exist and be of type ed25519 [`VerifyingKey`]
 fn verify_enclave_signatures(attestation: &AttestationDoc, signed_shares: Vec<Signature>, raw_shares: Vec<Share>) -> Result<(), Error>{
     if signed_shares.len() != raw_shares.len() { return Err(Error::AttestVerify(format!("Signed shares {signed_shares:?} and raw shares {raw_shares:?} lengths do not match."))); }
     let Some(enclave_pk) = &attestation.public_key else {
@@ -82,12 +100,15 @@ fn verify_enclave_signatures(attestation: &AttestationDoc, signed_shares: Vec<Si
 /// Follows NSM documentation: 
 /// <https://github.com/aws/aws-nitro-enclaves-nsm-api/blob/1993eeb0620d35f5cefc50b17638b432325328f9/docs/attestation_process.md>
 fn verify_aws_attestation(attestation_blob: &[u8], attestation: &AttestationDoc) -> Result<(), Error>{
+    println!("- AWS valid attestation verification");
     // 2.2 Check attesation's fields' sizes (Note steps 1 and 2 are already done by pontifex parsing)
     if !validate_content(&attestation) { return Err(Error::AttestVerify("Attestation's field sizes are incorrect".to_string())); }
     // 3. Verify certificates chain
     verify_certificate_chain(&attestation)?;
+    println!("-- Verified attestation's certificates chain!");
     // 4. Ensure Signed Attestation Document was correctly signed
     verify_aws_signature(attestation_blob, &attestation)?;
+    println!("-- Verified attestation was signed by AWS!");
     Ok(())
 }
 
@@ -133,7 +154,9 @@ fn validate_content(attestation: &AttestationDoc) -> bool {
 
 /// Uses OpenSSL to verify [`AttestationDoc`]'s X509 certificate chain
 /// 
-/// Checks expiration based on current time and [`AttestationDoc::timestamp`]
+/// Checks if the certificates were valid when the attestation was created based on its [`timestamp`][`AttestationDoc::timestamp`]
+/// 
+/// Relies on internal `AWS_ROOT_CERT_PATH` to contain the correct public AWS root certificate
 fn verify_certificate_chain(attestation: &AttestationDoc) -> Result<(), Error> {
     let aws_root_cert: &[u8] = &std::fs::read(AWS_ROOT_CERT_PATH)?;
     let aws_root_cert = X509::from_pem(aws_root_cert)?;

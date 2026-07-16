@@ -20,7 +20,7 @@ pub fn enclave_session<R: TryCryptoRng> (arithmetic: &ArithmeticSharing, binary:
     // Sign each party's share
     let shares_signed = sign_shares(&shares_raw, enclave_keypair)?;
     Ok((enclave_pk, shares_signed, shares_raw))
-} 
+}
 
 /// Generates a random [`ArithShare`] and returns [`DEFAULT_N`] correlated arithmetic and binary shares in indexed form
 fn generate_randoms<R: TryCryptoRng> (arithmetic: &ArithmeticSharing, binary: &BinarySharing, rng: &mut R) -> Result<Vec<Share>, Error> {

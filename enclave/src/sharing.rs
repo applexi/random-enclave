@@ -7,7 +7,7 @@ mod binary;
 
 /// An additive sharing scheme for [`ArithShare`]
 pub type ArithmeticSharing = AdditiveSharing<arithmetic::Arithmetic>;
-/// An additive sharing scheme for [`crate::BitShare`]
+/// An additive sharing scheme for a [`BitShare`][`crate::BitShare`]
 pub type BinarySharing = AdditiveSharing<binary::Binary>;
 
 /// Generates a random [`ArithShare`]
@@ -15,7 +15,7 @@ pub fn random_arith<R: TryCryptoRng>(rng: &mut R) -> Result<ArithShare, R::Error
     arithmetic::Arithmetic::random(rng)
 }
 
-/// Interface for a type [`crate::Share`], algebraic operations on shares, and generating a random share
+/// Interface for a type [`Share`][`crate::Share`], algebraic operations on shares, and generating a random share
 pub trait SharingMode {
     type Share: Copy;
 
@@ -39,7 +39,7 @@ impl<T: SharingMode> AdditiveSharing<T> {
     pub fn new() -> Self {
         AdditiveSharing{ n: common::DEFAULT_N, _sharing: PhantomData }
     }
-    /// Returns [`crate::DEFAULT_N`] shares from a given secret
+    /// Returns [`DEFAULT_N`][`crate::DEFAULT_N`] shares from a given secret
     pub fn share<R: TryCryptoRng>(&self, rng: &mut R, secret: T::Share) -> Result<Vec<T::Share>, R::Error> {
         let mut a: Vec<T::Share> = (0..self.n - 1)
             .map(|_| T::random(rng))
@@ -49,7 +49,7 @@ impl<T: SharingMode> AdditiveSharing<T> {
         a.push(a_n);
         Ok(a)
     }
-    /// Given [`crate::DEFAULT_N`] shares, returns their sum
+    /// Given [`DEFAULT_N`][`crate::DEFAULT_N`] shares, returns their sum
     pub fn reconstruct(&self, shares: &[T::Share]) -> T::Share {
         assert!(shares.len() == self.n);
         T::sum(shares)
