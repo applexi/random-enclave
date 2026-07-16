@@ -9,4 +9,3 @@ pub fn check_nsm(nsm: &SecureModule) -> Result<(), Error> {
     println!("version: {version_major}, locked_pcrs: {locked_pcrs:?}, digest: {digest:?}");
     Ok(())
 }
-

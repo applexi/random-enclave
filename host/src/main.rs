@@ -1,11 +1,9 @@
 use pontifex::{ConnectionDetails, send};
-use common::{SessionRequest, ENCLAVE_PORT};
 use serde_bytes::{ByteArray, ByteBuf};
 use ed25519_dalek::Signature;
 use std::{env, io};
-mod error;
-mod verify_scheme;
-use error::Error;
+use host::{Error, verify_session};
+use common::{SessionRequest, ENCLAVE_PORT};
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -35,7 +33,7 @@ async fn main() -> Result<(), Error> {
                     .collect();
                 let raw_shares = response.raw_shares;
 
-                verify_scheme::verify_session(attestation_blob, signed_shares, raw_shares, session_id)
+                verify_session(attestation_blob, signed_shares, raw_shares, session_id)
                     .expect("verification gone wrong");
             }
             "quit" => break,

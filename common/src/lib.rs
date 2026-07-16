@@ -23,7 +23,7 @@ pub type ArithShare = u64;
 pub type BitShare = bool;
 
 /// The raw share structure that has yet to be signed
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
 pub struct Share {
     pub ct: ArithShare,
     pub ctbit: Vec<BitShare>,

@@ -1,13 +1,11 @@
 use std::{iter::zip};
-
-use ed25519_dalek::{Signature, Verifier, VerifyingKey, PUBLIC_KEY_LENGTH};
 use libc::time_t;
+use ed25519_dalek::{Signature, Verifier, VerifyingKey, PUBLIC_KEY_LENGTH};
 use aws_nitro_enclaves_cose::{CoseSign1, crypto::Openssl};
 use openssl::{stack::Stack, x509::{X509, X509StoreContext, store::X509StoreBuilder, verify::{X509VerifyFlags, X509VerifyParam}}};
 use pontifex::{AttestationDoc, SecureModule, nsm::Digest};
-use common::{Share, DEFAULT_N};
 
-use crate::error::Error;
+use crate::{Error, Share, DEFAULT_N};
 
 const AWS_ROOT_CERT_PATH: &str = "host/root.pem";
 

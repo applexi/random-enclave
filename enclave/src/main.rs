@@ -15,7 +15,7 @@ async fn main() -> Result<(), Error>{
     let nsm = SecureModule::try_init_global().await?;
     nsm_helper::check_nsm(&nsm)?; // NOTE: maybe best to move into router for lifetime security?
     
-    // NOTE: need to do encryption/decryption & signing
+    // NOTE: need to do encryption/decryption 
     let router = Router::new()
         .route::<SessionRequest, _, _>(|_state, request| async move {
             let nsm = SecureModule::global();
@@ -34,7 +34,7 @@ async fn main() -> Result<(), Error>{
                 .map(|share| ByteArray::from(share.to_bytes()))
                 .collect();
 
-            // Request an attestation
+            // Request an attestation with nonce session_id and public_key enclave_pk
             let attestation = nsm.raw_attest(None::<Vec<u8>>, Some(session_id.to_be_bytes().to_vec()), Some(enclave_pk.as_bytes()))
                 .expect("attestation failure");
             let attestation = ByteBuf::from(attestation);

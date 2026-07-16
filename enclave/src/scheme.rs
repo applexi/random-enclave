@@ -26,11 +26,10 @@ pub fn enclave_session<R: TryCryptoRng> (arithmetic: &ArithmeticSharing, binary:
 fn generate_randoms<R: TryCryptoRng> (arithmetic: &ArithmeticSharing, binary: &BinarySharing, rng: &mut R) -> Result<Vec<Share>, Error> {
     let secret = random_arith(rng).map_err(|_| Error::Rng)?;
     let num_bits = ArithShare::BITS;
-    println!("secret: {secret}");
     let secret_bits: Vec<BitShare> = (0..num_bits).map(|i| (secret >> i) & 1 == 1).collect();
     let arith_shares = arithmetic.share(rng, secret).map_err(|_| Error::Rng)?;
     assert!(arithmetic.reconstruct(&arith_shares) == secret);
-    println!("arith shares: {arith_shares:?}");
+
     let mut bit_shares = Vec::new();
     for &bit in secret_bits.iter() {
         let bitshares_i = binary.share(rng, bit).map_err(|_| Error::Rng)?;
@@ -56,10 +55,42 @@ fn sign_shares(shares_raw: &Vec<Share>, signing_key: SigningKey) -> Result<Vec<S
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use getrandom::SysRng;
+    const TIMES: u64 = 20;
+    use std::collections::HashSet;
 
-    fn generate_randoms_correct() {
+use super::*;
+    use getrandom::SysRng;
+    use ed25519_dalek::Verifier;
+
+    #[test]
+    fn signing_correct_batch() {
+        let arithmetic = ArithmeticSharing::new();
+        let binary = BinarySharing::new();
+        let mut rng = SysRng;
+        let mut pk_cache: HashSet<VerifyingKey> = HashSet::new();
+
+        for _ in 0..TIMES {
+            let Ok((enclave_pk, shares_signed, shares_raw)) = enclave_session(&arithmetic, &binary, &mut rng) else {
+                panic!("Enclave_session did not return expected output")
+            };
+            // Enclave's public key should be randomly generated every time, and thus should be unique
+            assert!(!pk_cache.contains(&enclave_pk));
+            pk_cache.insert(enclave_pk);
+            // Length of all shares should be N
+            assert!(shares_raw.len() == shares_signed.len() && shares_raw.len() == DEFAULT_N);
+
+            // Tests that all shares have been correctly signed
+            for j in 0..DEFAULT_N {
+                let share_raw = serde_cbor::to_vec(&shares_raw[j])
+                    .expect("Raw share serialization failed");
+                let share_signed = &shares_signed[j];
+                enclave_pk.verify(&share_raw, share_signed)
+                    .expect("Signing of share failed");
+            }
+        }
+    }
+
+    fn generate_randoms_correct() -> Vec<Share>{
         let arithmetic = ArithmeticSharing::new();
         let binary = BinarySharing::new();
         let mut rng = SysRng;
@@ -97,12 +128,18 @@ mod tests {
         
         // Test correlation is correct
         assert!(arith_recon == binary_recon);
+
+        return shares;
     }
 
     #[test]
-    fn batch_test() {
-        for _ in 0..20 {
-            generate_randoms_correct();
+    fn generate_randoms_batch() {
+        let mut shares_cache: HashSet<Vec<Share>> = HashSet::new();
+        for _ in 0..TIMES {
+            let share = generate_randoms_correct();
+            // Shares should be randomly generated every time, and thus should be unique
+            assert!(!shares_cache.contains(&share));
+            shares_cache.insert(share);
         }
     }
 }
