@@ -210,14 +210,14 @@ pub fn save_output(attestation_blob: &[u8], signed_shares: Vec<ByteArray<64>>, e
         dir_path = dir_path.join("enclave-output");
     }
 
-    let blob_path = path.join(format!("attestation-{session_id}.bin"));
-    let json_path = path.join(format!("attestation-{session_id}.json"));
+    let blob_path = dir_path.join(format!("attestation-{session_id}.bin"));
+    let json_path = dir_path.join(format!("attestation-{session_id}.json"));
     let attest_json = SecureModule::parse_raw_attestation_doc(attestation_blob)?;
     let doc_json = serde_json::to_vec_pretty(&attest_json)?;
 
-    let signed_blob_path = path.join(format!("signed-shares-{session_id}.cbor"));
-    let enc_blob_path = path.join(format!("encrypted-shares-{session_id}.cbor"));
-    let share_json_path = path.join(format!("encrypted-shares-{session_id}.json"));
+    let signed_blob_path = dir_path.join(format!("signed-shares-{session_id}.cbor"));
+    let enc_blob_path = dir_path.join(format!("encrypted-shares-{session_id}.cbor"));
+    let share_json_path = dir_path.join(format!("encrypted-shares-{session_id}.json"));
     let shares_json = serde_json::to_vec_pretty(enc_shares)?;
     let enc_blob = serde_cbor::to_vec(enc_shares)?;
     let signed_blob = serde_cbor::to_vec(&signed_shares)?;

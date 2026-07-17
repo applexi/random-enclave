@@ -20,7 +20,7 @@ pub struct CliHost {
     /// Request "Random" for a random shares request to the enclave, "Verify" to verify an attestation, "Quit" to disconnect
     #[arg(short = 'r', long, value_enum)]
     pub request: RequestType,
-    /// A nonce that the enclave attestation must contain. Default value is 888
+    /// A nonce that the enclave attestation must contain
     #[arg(short = 's', long = "session-id", default_value_t = 888)]
     pub session_id: u64,
     /// PCR values the enclave attestation must have
