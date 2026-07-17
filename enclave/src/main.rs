@@ -25,9 +25,13 @@ async fn main() -> Result<(), Error>{
 
             // Obtain session parameters
             let session_id = request.session_id;
+            let party_pks: Vec<&[u8]> = request.party_pks
+                .iter()
+                .map(|key| &key[..])
+                .collect();
 
             // Generate a random and obtain signed shares
-            let (enclave_pk, signed_shares, raw_shares) = enclave_session(&arithmetic, &binary, &mut rng)
+            let (enclave_pk, signed_shares, enc_shares) = enclave_session(&arithmetic, &binary, &mut rng, &party_pks)
                 .expect("rng failure");
             let signed_shares: Vec<ByteArray<64>> = signed_shares
                 .iter()
@@ -39,7 +43,7 @@ async fn main() -> Result<(), Error>{
                 .expect("attestation failure");
             let attestation = ByteBuf::from(attestation);
 
-            SessionResponse{ attestation, signed_shares, raw_shares }
+            SessionResponse{ attestation, signed_shares, enc_shares }
         });
 
     router.serve(ENCLAVE_PORT).await?;

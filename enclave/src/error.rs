@@ -9,6 +9,7 @@ pub enum Error {
     Infallible,
     Rng,
     Serde,
+    Ecies,
 }
 
 impl From<std::io::Error> for Error {

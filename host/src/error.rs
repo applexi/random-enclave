@@ -13,6 +13,8 @@ pub enum Error {
     ED25519,
     Serde,
     Hex,
+    Ecies,
+    Vec,
 }
 
 impl std::fmt::Display for Error {
@@ -87,5 +89,11 @@ impl From<serde_cbor::Error> for Error {
 impl From<hex::FromHexError> for Error {
     fn from(_: hex::FromHexError) -> Self {
         Error::Hex
+    }
+}
+
+impl From<serde_json::Error> for Error {
+    fn from(_: serde_json::Error) -> Self {
+        Error::Serde
     }
 }

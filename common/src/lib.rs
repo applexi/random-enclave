@@ -10,6 +10,7 @@ pub const DEFAULT_N : usize = 5;
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SessionRequest {
     pub session_id: u64,
+    pub party_pks: Vec<ByteArray<32>>,
 }
 
 impl Request for SessionRequest {
@@ -24,9 +25,9 @@ pub type BitShare = bool;
 
 /// The raw share structure that has yet to be signed
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
-pub struct Share {
-    pub ct: ArithShare,
-    pub ctbit: Vec<BitShare>,
+pub struct RawShare {
+    pub pt: ArithShare,
+    pub ptbits: Vec<BitShare>,
 }
 
 /// Enclave output given to host instance
@@ -34,7 +35,7 @@ pub struct Share {
 pub struct SessionResponse {
     pub attestation: ByteBuf,
     pub signed_shares: Vec<ByteArray<64>>,
-    pub raw_shares: Vec<Share>,
+    pub enc_shares: Vec<Vec<u8>>,
 }
 
 impl std::fmt::Display for SessionResponse {

@@ -5,57 +5,61 @@
 //! - AWS valid attestation verification (based on NSM documentation <https://github.com/aws/aws-nitro-enclaves-nsm-api/blob/1993eeb0620d35f5cefc50b17638b432325328f9/docs/attestation_process.md>)
 //! - Enclave scheme verification (output signed by enclave, correct session ID, correct PCRs)
 
-use std::{iter::zip};
+use std::{iter::zip, fs, path::Path};
 use libc::time_t;
 use hex;
 use ed25519_dalek::{Signature, Verifier, VerifyingKey, PUBLIC_KEY_LENGTH};
 use aws_nitro_enclaves_cose::{CoseSign1, crypto::Openssl};
 use openssl::{stack::Stack, x509::{X509, X509StoreContext, store::X509StoreBuilder, verify::{X509VerifyFlags, X509VerifyParam}}};
 use pontifex::{AttestationDoc, SecureModule, nsm::Digest};
+use serde_bytes::{ByteArray};
 
-use crate::{Error, Share, SessionInput, DEFAULT_N};
+use crate::{Error, SessionInput, DEFAULT_N};
 
 const AWS_ROOT_CERT_PATH: &str = "host/root.pem";
 
 /// Given a binary blob attestation, checks if valid AWS attestation and if the attestation's measurements are expected respective to the enclave scheme
-pub fn verify_session(attestation_blob: &[u8], signed_shares: Vec<Signature>, raw_shares: Vec<Share>, session_input: SessionInput) -> Result<(), Error> {
+pub fn verify_session(attestation_blob: &[u8], signed_shares: Vec<Signature>, enc_shares: &Vec<Vec<u8>>, session_input: SessionInput) -> Result<(), Error> {
     let attestation = SecureModule::parse_raw_attestation_doc(attestation_blob)?;
     verify_aws_attestation(attestation_blob, &attestation)?;
-    verify_enclave_attestation(&attestation, signed_shares, raw_shares, session_input)?;
+    verify_enclave_attestation(&attestation, signed_shares, enc_shares, session_input)?;
     Ok(())
 }
 
 /// Given an [`AttestationDoc`], checks if attestation is session and scheme correct, and if output is attested by the attestation
-fn verify_enclave_attestation(attestation: &AttestationDoc, signed_shares: Vec<Signature>, raw_shares: Vec<Share>, session_input: SessionInput) -> Result<(), Error>{
+fn verify_enclave_attestation(attestation: &AttestationDoc, signed_shares: Vec<Signature>, enc_shares: &Vec<Vec<u8>>, session_input: SessionInput) -> Result<(), Error>{
     println!("- Enclave scheme verification");
-    verify_enclave_signatures(attestation, signed_shares, raw_shares)?;
+    verify_enclave_signatures(attestation, signed_shares, enc_shares)?;
     println!("-- Verified enclave's output was signed by the public key in the enclave's attestation!");
     verify_session_id(attestation, session_input.session_id)?;
     println!("-- Verified attestation's session ID is {:?}!", session_input.session_id);
-    verify_pcrs(attestation, session_input.pcr3, session_input.pcr8)?;
+    verify_pcrs(attestation, session_input.pcrs)?;
     println!("-- Verified attestation's PCRs are nonzero (and correct if random request included both PCR fields)!");
     // TODO: check if party public keys are consensus set
     Ok(())
 }
 
 /// Verifies that all [`pcrs`][`AttestationDoc::pcrs`] are non-zero, and checks pcr3 and pcr8 for correctness
-fn verify_pcrs(attestation: &AttestationDoc, expected_pcr3: String, expected_pcr8: String) -> Result<(), Error> {
-    let pcrs = &attestation.pcrs;
-    for (i, pcr) in pcrs {
+fn verify_pcrs(attestation: &AttestationDoc, pcrs: Option<Vec<(usize, String)>>) -> Result<(), Error> {
+    let attest_pcrs = &attestation.pcrs;
+    for (i, pcr) in attest_pcrs {
         // PCRs 0-2 and 8 should not be zero
         if (*i < 3 || *i == 8) &&
         pcr.iter().all(|byte| *byte == 0) { return Err(Error::AttestVerify(format!("PCR {i} is all zero"))); }
     }
-    let actual_pcr3: &[u8] = &pcrs[&3];
-    let actual_pcr8: &[u8] = &pcrs[&8];
-    // TODO: change pcr3 and pcr8 to be required rather than optional as it is currently
-    if expected_pcr3 != String::default() && expected_pcr8 != String::default() {
-        let expected_pcr3 = hex::decode(expected_pcr3.trim())?;
-        let expected_pcr8 = hex::decode(expected_pcr8.trim())?;
-        if actual_pcr3.as_ref() != expected_pcr3.as_slice() || actual_pcr8.as_ref() != expected_pcr8.as_slice() {
-            return Err(Error::AttestVerify(format!("Attestation pcr3 {:?} doesn't match expected pcr3 {:?}, or attestation pcr8 {:?} doesn't match expected pcr8 {:?}", 
-                                                    actual_pcr3.as_ref(), expected_pcr3.as_slice(), actual_pcr8.as_ref(), expected_pcr8.as_slice())));
+    if let Some(expected_pcrs) = pcrs {
+        for (pcr_index, expected_pcr) in expected_pcrs {
+            let actual_pcr: &[u8] = &attest_pcrs[&pcr_index];
+            check_pcr(&pcr_index, actual_pcr, expected_pcr)?;
         }
+    }
+    Ok(())
+}
+
+fn check_pcr(pcr_index: &usize, actual_pcr: &[u8], expected_pcr: String) -> Result<(), Error> {
+    let expected_pcr = hex::decode(expected_pcr.trim())?;
+    if actual_pcr.as_ref() != expected_pcr.as_slice() {
+        return Err(Error::AttestVerify(format!("Attestation pcr{pcr_index} {:?} doesn't match expected pcr{pcr_index} {:?}", actual_pcr.as_ref(), expected_pcr.as_slice())));
     }
     Ok(())
 }
@@ -78,19 +82,16 @@ fn verify_session_id(attestation: &AttestationDoc, session_id: u64) -> Result<()
 /// Checks that `len(raw_shares) == len(signed_shares) == `[`DEFAULT_N`]
 /// 
 /// Requires [`public key`][`AttestationDoc::public_key`] to exist and be of type ed25519 [`VerifyingKey`]
-fn verify_enclave_signatures(attestation: &AttestationDoc, signed_shares: Vec<Signature>, raw_shares: Vec<Share>) -> Result<(), Error>{
-    if signed_shares.len() != raw_shares.len() { return Err(Error::AttestVerify(format!("Signed shares {signed_shares:?} and raw shares {raw_shares:?} lengths do not match."))); }
+fn verify_enclave_signatures(attestation: &AttestationDoc, signed_shares: Vec<Signature>, enc_shares: &Vec<Vec<u8>>) -> Result<(), Error>{
+    if signed_shares.len() != enc_shares.len() { return Err(Error::AttestVerify(format!("Shares' lengths do not match {DEFAULT_N}."))); }
     let Some(enclave_pk) = &attestation.public_key else {
         return Err(Error::AttestVerify("Attestation's public_key field does not exist.".to_string()))
     };
     let enclave_pk: &[u8; PUBLIC_KEY_LENGTH]  = (&enclave_pk[..]).try_into()?;
     let enclave_pk = VerifyingKey::from_bytes(enclave_pk)?;
-    let shares = zip(signed_shares.iter(), raw_shares.iter());
-    if shares.len() != DEFAULT_N { return Err(Error::AttestVerify(format!("Shares' length does not match {DEFAULT_N}"))); }
 
-    for (signature, message) in shares {
-        let message = serde_cbor::to_vec(message)?;
-        enclave_pk.verify(&message, signature)?;
+    for (signature, message) in zip(signed_shares, enc_shares) {
+        enclave_pk.verify(message, &signature)?;
     }
     Ok(())
 }
@@ -99,7 +100,7 @@ fn verify_enclave_signatures(attestation: &AttestationDoc, signed_shares: Vec<Si
 /// 
 /// Follows NSM documentation: 
 /// <https://github.com/aws/aws-nitro-enclaves-nsm-api/blob/1993eeb0620d35f5cefc50b17638b432325328f9/docs/attestation_process.md>
-fn verify_aws_attestation(attestation_blob: &[u8], attestation: &AttestationDoc) -> Result<(), Error>{
+pub fn verify_aws_attestation(attestation_blob: &[u8], attestation: &AttestationDoc) -> Result<(), Error>{
     println!("- AWS valid attestation verification");
     // 2.2 Check attesation's fields' sizes (Note steps 1 and 2 are already done by pontifex parsing)
     if !validate_content(&attestation) { return Err(Error::AttestVerify("Attestation's field sizes are incorrect".to_string())); }
@@ -201,6 +202,60 @@ fn verify_aws_signature(attestation_blob: &[u8], attestation: &AttestationDoc) -
     let key = target_cert.public_key()?;
     cose.verify_signature::<Openssl>(&key)?;
     Ok(())
+}
+
+pub fn save_output(attestation_blob: &[u8], signed_shares: Vec<ByteArray<64>>, enc_shares: &Vec<Vec<u8>>, session_id: u64, path: &Path) -> Result<(), Error> {
+    let mut dir_path = path.to_path_buf();
+    if !path.ends_with("enclave-output") {
+        dir_path = dir_path.join("enclave-output");
+    }
+
+    let blob_path = path.join(format!("attestation-{session_id}.bin"));
+    let json_path = path.join(format!("attestation-{session_id}.json"));
+    let attest_json = SecureModule::parse_raw_attestation_doc(attestation_blob)?;
+    let doc_json = serde_json::to_vec_pretty(&attest_json)?;
+
+    let signed_blob_path = path.join(format!("signed-shares-{session_id}.cbor"));
+    let enc_blob_path = path.join(format!("encrypted-shares-{session_id}.cbor"));
+    let share_json_path = path.join(format!("encrypted-shares-{session_id}.json"));
+    let shares_json = serde_json::to_vec_pretty(enc_shares)?;
+    let enc_blob = serde_cbor::to_vec(enc_shares)?;
+    let signed_blob = serde_cbor::to_vec(&signed_shares)?;
+
+    fs::create_dir_all(dir_path)?;
+    fs::write(blob_path, attestation_blob)?;
+    fs::write(json_path, doc_json)?;
+    fs::write(signed_blob_path, signed_blob)?;
+    fs::write(enc_blob_path, enc_blob)?;
+    fs::write(share_json_path, shares_json)?;
+    Ok(())
+}
+
+/// Returns a binary blob attestation from a given file path. If file name was "attestation-{session id}.bin", also returns the session id
+/// 
+/// Errors if file path could not be read
+pub fn attestation_from_path(path: &Path) -> Result<(Vec<u8>, Option<u64>), Error> {
+    let attestation_blob = fs::read(path)?;
+    let session_id = path
+        .file_name()
+        .and_then(|x| x.to_str())
+        .and_then(|x| x.strip_prefix("attestation-"))
+        .and_then(|x| x.strip_suffix(".bin"))
+        .and_then(|x| x.parse::<u64>().ok());
+    Ok((attestation_blob, session_id))
+}
+
+pub fn shares_from_path(signed_path: &Path, enc_path: &Path) -> Result<(Vec<Signature>, Vec<Vec<u8>>), Error> {
+    let enc_shares = fs::read(enc_path)?;
+    let enc_shares: Vec<Vec<u8>> = serde_cbor::from_slice(&enc_shares)?;
+
+    let signed_shares = fs::read(signed_path)?;
+    let signed_shares: Vec<ByteArray<64>> = serde_cbor::from_slice(&signed_shares)?;
+    let signed_shares: Vec<Signature> = signed_shares 
+        .iter()
+        .map(|share| Signature::from_bytes(&ByteArray::into_array(*share)))
+        .collect();
+    Ok((signed_shares, enc_shares))
 }
 
 // TODO: test attestations

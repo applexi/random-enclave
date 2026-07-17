@@ -1,0 +1,67 @@
+use clap::{Parser, ValueEnum};
+use std::{io::{Write, stdin, stdout}, path::PathBuf};
+use crate::Error;
+
+#[derive(Parser, Debug)]
+pub struct CliInit {
+    #[arg(long = "enclave-cid")]
+    pub enclave_cid: u32,
+}
+
+#[derive(Debug, Clone, ValueEnum)]
+pub enum RequestType {
+    Random,
+    Verify,
+    Quit,
+}
+
+#[derive(Parser, Debug)]
+pub struct CliHost {
+    /// Request "Random" for a random shares request to the enclave, "Verify" to verify an attestation, "Quit" to disconnect
+    #[arg(short = 'r', long, value_enum)]
+    pub request: RequestType,
+    /// A nonce that the enclave attestation must contain. Default value is 888
+    #[arg(short = 's', long = "session-id", default_value_t = 888)]
+    pub session_id: u64,
+    /// PCR values the enclave attestation must have
+    #[arg(long = "pcr", value_name = "(PCR_INDEX)=(EXPECTED_PCR_VALUE)", value_parser = parse_pcr)]
+    pub pcrs: Option<Vec<(usize, String)>>,
+    /// For Random: to download the enclave's output (attestation + shares), with an optional path
+    #[arg(long = "get-attest", value_name = "PATH", num_args = 0..=1, default_missing_value = ".")]
+    pub get_output: Option<PathBuf>,
+    /// For Verify: specific attestation's path (.bin) to verify
+    #[arg(long = "attest-path", value_name = "FILE_PATH (.bin)", required_if_eq("request", "verify"))]
+    pub attest_path: PathBuf,
+    /// For Verify: signed shares path. If not included, only checks if attestation is valid AWS
+    #[arg(long = "signed-shares-path", value_name = "FILE_PATH (.bin)")]
+    pub signed_shares_path: Option<PathBuf>,
+    /// For Verify: encrypted shares path. If not included, only checks if attestation is valid AWS
+    #[arg(long = "enc-shares-path", value_name = "FILE_PATH (.bin)")]
+    pub enc_shares_path: Option<PathBuf>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct SessionInput {
+    pub session_id: u64,
+    pub pcrs: Option<Vec<(usize, String)>>,
+}
+
+pub fn get_line() -> Result<String, Error> {
+    print!("> ");
+    stdout().flush()?;
+    let mut line = String::new();
+    stdin().read_line(&mut line)?;
+    line.insert_str(0, "host ");
+    Ok(line)
+}
+
+fn parse_pcr(s: &str) -> Result<(usize, String), String>{
+    let Some((index, value)) = s.split_once('=') else {
+        return Err("Field 'pcr' requires value of (index)=(value)".to_string())
+    };
+    let index: usize = index.parse().unwrap();
+    if index > 32 {
+        return Err("The AWS attestation's max pcr index is 31.".to_string());
+    }   
+    Ok((index, value.to_string()))
+}

@@ -13,3 +13,4 @@ ed25519-dalek = { workspace = true, features = ["rand_core"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_cbor = { workspace = true }
 serde_bytes = { workspace = true }
+ecies = { version = "0.2.11", features = ["std", "x25519"] }
