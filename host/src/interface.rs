@@ -31,7 +31,7 @@ pub struct CliHost {
     pub get_output: Option<PathBuf>,
     /// For Verify: specific attestation's path (.bin) to verify
     #[arg(long = "attest-path", value_name = "FILE_PATH (.bin)", required_if_eq("request", "verify"))]
-    pub attest_path: PathBuf,
+    pub attest_path: Option<PathBuf>,
     /// For Verify: signed shares path. If not included, only checks if attestation is valid AWS
     #[arg(long = "signed-shares-path", value_name = "FILE_PATH (.bin)")]
     pub signed_shares_path: Option<PathBuf>,

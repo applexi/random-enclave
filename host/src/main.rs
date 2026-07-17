@@ -66,7 +66,10 @@ async fn main() -> Result<(), Error> {
             }
             RequestType::Verify => {
                 println!("====================================================================================================");
-                let attest_path = input.attest_path;
+                let Some(attest_path) = input.attest_path else {
+                    println!("Attestation path required for verification");
+                    continue;
+                };
                 let (attestation_blob, session_id) = attestation_from_path(&attest_path)?;
                 let session_id = match session_id {
                     Some(session_id) => session_id,
