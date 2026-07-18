@@ -56,7 +56,8 @@ async fn main() -> Result<(), Error> {
 
                 // Decrypt shares
                 let raw_shares = decrypt_shares(&enc_shares, &party_sks)?;
-                println!("Obtained raw shares: {raw_shares:?}");
+                println!("Obtained {:?} raw shares: [RawShare {{ pt: {:?}, ptbits: [{:?}, {:?}, {:?}, {:?}, ...]}}, ...",
+                        raw_shares.len(), raw_shares[0].pt, raw_shares[0].ptbits[0], raw_shares[0].ptbits[1], raw_shares[0].ptbits[2], raw_shares[0].ptbits[3]);
 
                 // If specified, save enclave's output
                 if let Some(path) = input.get_output {
