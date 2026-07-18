@@ -191,7 +191,7 @@ fn verify_certificate_chain(attestation: &AttestationDoc) -> Result<(), Error> {
     // Verify attestation's certificate with attestation's CA bundle (certificate chain) and AWS root certificate
     let mut store_context = X509StoreContext::new()?;
     store_context.init(&trust, &target_cert, &interm_certs, |trust| trust.verify_cert())?;
-    
+
     Ok(())
 }
 

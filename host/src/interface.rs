@@ -17,7 +17,7 @@ pub enum RequestType {
 
 #[derive(Parser, Debug)]
 pub struct CliHost {
-    /// Request "Random" for a random shares request to the enclave, "Verify" to verify an attestation, "Quit" to disconnect
+    /// Request "random" for a random shares request to the enclave, "verify" to verify an attestation, "quit" to disconnect
     #[arg(short = 'r', long, value_enum)]
     pub request: RequestType,
     /// A nonce that the enclave attestation must contain
@@ -29,14 +29,14 @@ pub struct CliHost {
     /// For Random: to download the enclave's output (attestation + shares), with an optional path
     #[arg(long = "get-attest", value_name = "PATH", num_args = 0..=1, default_missing_value = ".")]
     pub get_output: Option<PathBuf>,
-    /// For Verify: specific attestation's path (.bin) to verify
+    /// For Verify: specific attestation's path to verify
     #[arg(long = "attest-path", value_name = "FILE_PATH (.bin)", required_if_eq("request", "verify"))]
     pub attest_path: Option<PathBuf>,
     /// For Verify: signed shares path. If not included, only checks if attestation is valid AWS
-    #[arg(long = "signed-shares-path", value_name = "FILE_PATH (.bin)")]
+    #[arg(long = "signed-shares-path", value_name = "FILE_PATH (.cbor)")]
     pub signed_shares_path: Option<PathBuf>,
     /// For Verify: encrypted shares path. If not included, only checks if attestation is valid AWS
-    #[arg(long = "enc-shares-path", value_name = "FILE_PATH (.bin)")]
+    #[arg(long = "enc-shares-path", value_name = "FILE_PATH (.cbor)")]
     pub enc_shares_path: Option<PathBuf>,
 }
 

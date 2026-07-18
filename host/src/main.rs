@@ -14,17 +14,17 @@ async fn main() -> Result<(), Error> {
     let args_init = CliInit::parse();
     let connection = ConnectionDetails::new(args_init.enclave_cid, ENCLAVE_PORT);
     println!("Connected to enclave {:?} on port {ENCLAVE_PORT}", args_init.enclave_cid);
-
+    println!("For full commands, please enter \"--help\"");
     loop {
         let line = get_line()?;
         let input = match CliHost::try_parse_from(line.split_whitespace()) {
             Ok(input) => input,
-            Err(e) => { println!("{e}"); continue; }
+            Err(e) => { println!("{e}"); continue }
         };
         match input.request {
             RequestType::Random => {
                 println!("====================================================================================================");
-                println!("Enclave called with session id: {:?}", input.session_id);
+                println!("Enclave called with session id: {:?}\n", input.session_id);
                 let session_id = input.session_id;
                 let pcrs = input.pcrs;
                 let session_input = SessionInput{ session_id, pcrs };
@@ -52,7 +52,7 @@ async fn main() -> Result<(), Error> {
                     .collect();
                 let enc_shares = response.enc_shares;
                 verify_session(attestation_blob, signed_shares, &enc_shares, session_input)?;
-                println!("Verification successful!");
+                println!("SUCCESS: Verification successful!");
 
                 // Decrypt shares
                 let raw_shares = decrypt_shares(&enc_shares, &party_sks)?;
@@ -68,26 +68,41 @@ async fn main() -> Result<(), Error> {
             RequestType::Verify => {
                 println!("====================================================================================================");
                 let Some(attest_path) = input.attest_path else {
-                    println!("Attestation path required for verification");
-                    continue;
+                    println!("ERROR: Attestation path required for verification");
+                    continue
                 };
-                let (attestation_blob, session_id) = attestation_from_path(&attest_path)?;
-                let session_id = match session_id {
+                let Some((attestation_blob, session_id)) = attestation_from_path(&attest_path).ok() else {
+                    println!("ERROR: Attestation path is wrong");
+                    continue
+                };
+                let mut session_id = match session_id {
                     Some(session_id) => session_id,
                     None => input.session_id,
                 };
+                if input.session_id != 0 { session_id = input.session_id; }
                 let pcrs = input.pcrs;
                 let session_input = SessionInput{ session_id, pcrs };
                 if let Some(signed_path) = input.signed_shares_path && let Some(enc_path) = input.enc_shares_path {
-                    let (signed_shares, enc_shares) = shares_from_path(&signed_path, &enc_path)?;
-                    verify_session(&attestation_blob, signed_shares, &enc_shares, session_input)?;
+                    let Some((signed_shares, enc_shares)) = shares_from_path(&signed_path, &enc_path).ok() else {
+                        println!("ERROR: Signed shares path and/or encrypted shares path are wrong");
+                        continue
+                    };
+                    if let Err(e) = verify_session(&attestation_blob, signed_shares, &enc_shares, session_input) {
+                        println!("FAILED: Verification failed with error {e:?}");
+                        continue
+                    }
                 } else {
                     let attestation = pontifex::SecureModule::parse_raw_attestation_doc(&attestation_blob)?;
-                    verify_aws_attestation(&attestation_blob, &attestation)?;
+                    if let Err(e) = verify_aws_attestation(&attestation_blob, &attestation) {
+                        println!("FAILED: Verification failed with error {e:?}");
+                        continue
+                    }
                 }
+                println!("SUCCESS: Verification successful!");
             }
             Quit => break,
         }
+        println!("====================================================================================================");
     }
     println!("Connection broken.");
     Ok(())
