@@ -21,7 +21,7 @@ pub struct CliHost {
     #[arg(short = 'r', long, value_enum)]
     pub request: RequestType,
     /// A nonce that the enclave attestation must contain
-    #[arg(short = 's', long = "session-id", default_value_t = 888)]
+    #[arg(short = 's', long = "session-id", default_value_t = 0)]
     pub session_id: u64,
     /// PCR values the enclave attestation must have
     #[arg(long = "pcr", value_name = "(PCR_INDEX)=(EXPECTED_PCR_VALUE)", value_parser = parse_pcr)]
