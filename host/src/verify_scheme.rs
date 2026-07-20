@@ -45,8 +45,8 @@ pub fn verify_enclave_attestation(attestation: &AttestationDoc, signed_shares: &
 fn verify_pcrs(attestation: &AttestationDoc, pcrs: &Option<Vec<(usize, String)>>) -> Result<(), Error> {
     let attest_pcrs = &attestation.pcrs;
     for (i, pcr) in attest_pcrs {
-        // PCRs 0-2 and 8 should not be zero
-        if (*i < 3 || *i == 8) &&
+        // PCRs 0-2 should not be zero
+        if *i < 3 &&
         pcr.iter().all(|byte| *byte == 0) { return Err(Error::AttestVerify(format!("PCR {i} is all zero"))); }
     }
     if let Some(expected_pcrs) = pcrs {
