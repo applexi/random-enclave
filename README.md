@@ -185,7 +185,7 @@ Examples:
 --request verify --attestation ./enclave-output/attestation-888.bin 
 # Verify an attestation is a valid AWS with specified session ID and PCR0 and PCR8
 --request verify \
-    --attestation ./enclave-output/attestation-888.bin \
+    --attestation ./my-own-dir/my-attestation.bin \
     --session-id 888 \
     --pcr 0=8b9c8013964709f065129adf16e836625238d502fead6acd00f07e281ef4a3bd18d06248493cc876538d9f4254b19d8e \
     --pcr 8=52cd5ee35cfcd56977c2b2ed2ef5f907009c68ad636a6b6efb5bc6928959cd67edc0eab74143f06e042041ef594447e4

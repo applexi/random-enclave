@@ -262,6 +262,3 @@ pub fn shares_from_path(signed_path: &Path, enc_path: &Path) -> Result<(Vec<Sign
         .collect();
     Ok((signed_shares, enc_shares))
 }
-
-// TODO: test attestations
-// - expired attestations, use debug-mode to get zeroed attestations, edited attestations
