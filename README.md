@@ -146,11 +146,15 @@ Examples:
 # Basic random request and response with all defaults
 --request random 
 
-# Random request with a user-specified session ID of 888
+# Random request with a user-specified session ID 888
 --request random --session-id 888
-# Random request with a session ID and with PCR0 and PCR8 values from earlier
---request random --session-id 888 --pcr 0=<PCR0> --pcr 8=<PCR8>
-# Random request, saving the attestation + outputs to ~/random-enclave/enclave-output
+# Random request with a session ID and with expected PCR0 and PCR8 values
+--request random \
+    --session-id 888 \
+    --pcr 0=8b9c8013964709f065129adf16e836625238d502fead6acd00f07e281ef4a3bd18d06248493cc876538d9f4254b19d8e \
+    --pcr 8=52cd5ee35cfcd56977c2b2ed2ef5f907009c68ad636a6b6efb5bc6928959cd67edc0eab74143f06e042041ef594447e4
+
+# Random request, saving the attestation + outputs to ~/random-enclave/enclave-output/
 --request random --get-attest
 ```
 
@@ -168,20 +172,31 @@ Tests the host's local verification process and does not call the enclave. Behav
 
 Examples:
 ```bash
-# Verify an attestation is a valid AWS attestation and that the outputs are valid with respect to scheme, with PCR0
-# If attestation file name is 'attestation-{SESSION-ID}', checks session ID with SESSION-ID
+# Verify entire scheme with PCR0 and session ID 888
+# If attestation file name is 'attestation-{SESSION-ID}', sets --session-ID to SESSION-ID
 # To verify shares are signed by enclave, must include both `--signed-shares` and `--enc-shares`
---request verify --attestation <PATH (.bin)> --signed-shares <PATH (.cbor)> --enc-shares <PATH (.cbor)> --PCR0 0=<PCR0>
+--request verify \
+     --attestation ./enclave-output/attestation-888.bin \
+     --signed-shares ./enclave-output/signed-shares-888.cbor \
+     --enc-shares ./enclave-output/enc-shares-888.cbor \
+     --pcr 0=8b9c8013964709f065129adf16e836625238d502fead6acd00f07e281ef4a3bd18d06248493cc876538d9f4254b19d8e
 
 # Verify an attestation is a valid AWS attestation
---request verify --attestation <PATH (.bin)> 
+--request verify --attestation ./enclave-output/attestation-888.bin 
 # Verify an attestation is a valid AWS with specified session ID and PCR0 and PCR8
---request verify --attestation <PATH (.bin)> --session-id 888 --PCR0 0=<PCR0> --PCR8 8=<PCR8>
+--request verify \
+    --attestation ./enclave-output/attestation-888.bin \
+    --session-id 888 \
+    --pcr 0=8b9c8013964709f065129adf16e836625238d502fead6acd00f07e281ef4a3bd18d06248493cc876538d9f4254b19d8e \
+    --pcr 8=52cd5ee35cfcd56977c2b2ed2ef5f907009c68ad636a6b6efb5bc6928959cd67edc0eab74143f06e042041ef594447e4
 
 # Verify outputs are valid with respect to the attestation's fields
 # Cannot verify if attestation is valid AWS attestation
 # Must include `--signed-shares` and `--enc-shares`
---request verify --attestation <PATH (.json)> --signed-shares <PATH (.cbor)> --enc-shares <PATH (.cbor)> 
+--request verify \
+    --attestation ./enclave-output/attestation-888.json \
+    --signed-shares ./enclave-output/signed-shares-888.bin \
+    --enc-shares ./enclave-output/enc-shares-888.cbor
 ```
 
 ### quit
