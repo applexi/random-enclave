@@ -6,7 +6,7 @@
 //! - Enclave scheme verification (output signed by enclave, correct session ID, correct PCRs)
 //! - Helper functions to save attestation and shares, and to obtain them from valid paths
 
-use std::{iter::zip, fs, path::Path};
+use std::{fs, iter::zip, path::{Path, PathBuf}};
 use libc::time_t;
 use hex;
 use ed25519_dalek::{Signature, Verifier, VerifyingKey, PUBLIC_KEY_LENGTH};
@@ -205,7 +205,7 @@ fn verify_aws_signature(attestation_blob: &[u8], attestation: &AttestationDoc) -
     Ok(())
 }
 
-pub fn save_output(attestation_blob: &[u8], signed_shares: Vec<ByteArray<64>>, enc_shares: &Vec<Vec<u8>>, session_id: u64, path: &Path) -> Result<(), Error> {
+pub fn save_output(attestation_blob: &[u8], signed_shares: Vec<ByteArray<64>>, enc_shares: &Vec<Vec<u8>>, session_id: u64, path: &Path) -> Result<PathBuf, Error> {
     let mut dir_path = path.to_path_buf();
     if !path.ends_with("enclave-output") {
         dir_path = dir_path.join("enclave-output");
@@ -223,13 +223,14 @@ pub fn save_output(attestation_blob: &[u8], signed_shares: Vec<ByteArray<64>>, e
     let enc_blob = serde_cbor::to_vec(enc_shares)?;
     let signed_blob = serde_cbor::to_vec(&signed_shares)?;
 
-    fs::create_dir_all(dir_path)?;
+    fs::create_dir_all(&dir_path)?;
     fs::write(blob_path, attestation_blob)?;
     fs::write(json_path, doc_json)?;
     fs::write(signed_blob_path, signed_blob)?;
     fs::write(enc_blob_path, enc_blob)?;
     fs::write(share_json_path, shares_json)?;
-    Ok(())
+
+    Ok(dir_path)
 }
 
 /// Returns a binary blob attestation from a given file path. If file name was "attestation-{session id}", also returns the session id

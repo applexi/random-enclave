@@ -15,7 +15,6 @@ async fn main() -> Result<(), Error> {
     let connection = ConnectionDetails::new(args_init.enclave_cid, ENCLAVE_PORT);
     println!("Connected to enclave {:?} on port {ENCLAVE_PORT}", args_init.enclave_cid);
     println!("For full commands, please enter \"--help\"");
-    println!("==============================================================================================================");
     loop {
         let line = get_line()?;
         let input = match CliHost::try_parse_from(line.split_whitespace()) {
@@ -61,8 +60,8 @@ async fn main() -> Result<(), Error> {
 
                 // If specified, save enclave's output
                 if let Some(path) = input.get_output {
-                    save_output(attestation_blob, response.signed_shares, &enc_shares, session_id, &path)?;
-                    println!("\nDownloaded enclave output to {path:?}!")
+                    let dir_path = save_output(attestation_blob, response.signed_shares, &enc_shares, session_id, &path)?;
+                    println!("\nSaved attestation + enclave outputs to {dir_path:?}!")
                 }
             }
             RequestType::Verify => {
