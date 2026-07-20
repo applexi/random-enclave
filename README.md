@@ -124,7 +124,6 @@ Ensure you have the enclave running. Now, let's set up "host", or the client sid
 
 ```bash
 cd random-enclave
-cargo build --package host
 cargo run --package host -- --enclave-cid <YOUR-ENCLAVE-CID>
 ```
 
