@@ -123,6 +123,7 @@ Save the enclave's `EnclaveID`, `EnclaveCID`, and listed PCRs for later usage + 
 Ensure you have the enclave running. Now, let's set up "host", or the client side.
 
 ```bash
+cd random-enclave
 cargo build --package host
 cargo run --package host -- --enclave-cid <YOUR-ENCLAVE-CID>
 ```
