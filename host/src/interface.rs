@@ -85,6 +85,7 @@ pub fn init_logger(verbose: u8) {
         .filter_level(level)
         .format_level(false)
         .format_timestamp(None)
+        .format_indent(None)
         .format_target(false)
         .init();
 }
