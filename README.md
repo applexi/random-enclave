@@ -201,7 +201,7 @@ Examples:
 
 ### quit
 
-Disconnects with the enclave. Note that the host can reconnect anytime afterwards as long as the enclave is running.
+Disconnects. Note that the host can reconnect anytime afterwards as long as the enclave is running.
 
 ```bash
 --request quit
