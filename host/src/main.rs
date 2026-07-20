@@ -15,8 +15,8 @@ async fn main() -> Result<(), Error> {
     let connection = ConnectionDetails::new(args_init.enclave_cid, ENCLAVE_PORT);
     println!("Connected to enclave {:?} on port {ENCLAVE_PORT}", args_init.enclave_cid);
     println!("For full commands, please enter \"--help\"");
+    println!("===========================================================================================================");
     loop {
-        println!("===========================================================================================================");
         let line = get_line()?;
         let input = match CliHost::try_parse_from(line.split_whitespace()) {
             Ok(input) => input,
@@ -24,7 +24,7 @@ async fn main() -> Result<(), Error> {
         };
         match input.request {
             RequestType::Random => {
-                println!("Enclave called with session id: {:?}\n", input.session_id);
+                println!("\nEnclave called with session id: {:?}", input.session_id);
                 let session_id = input.session_id;
                 let pcrs = input.pcrs;
                 let session_input = SessionInput{ session_id, pcrs };
@@ -42,7 +42,7 @@ async fn main() -> Result<(), Error> {
                 let request = SessionRequest{ session_id, party_pks };
 
                 let response = send(connection, &request).await?;
-                println!("Enclave response received!");
+                println!("\nEnclave response received!");
 
                 // Verify attestation
                 let attestation_blob = &ByteBuf::into_vec(response.attestation);
@@ -52,17 +52,17 @@ async fn main() -> Result<(), Error> {
                     .collect();
                 let enc_shares = response.enc_shares;
                 verify_session(attestation_blob, &signed_shares, &enc_shares, &session_input)?;
-                println!("SUCCESS: Verification successful!");
+                println!("\nSUCCESS: Verification successful!");
 
                 // Decrypt shares
                 let raw_shares = decrypt_shares(&enc_shares, &party_sks)?;
-                println!("Obtained {:?} raw shares: [RawShare {{ pt: {:?}, ptbits: [{:?}, {:?}, {:?}, {:?}, ...]}}, ...",
+                println!("\nObtained {:?} raw shares: [RawShare{{ pt: {:?}, ptbits: [{:?}, {:?}, {:?}, {:?}, ...] }}, ...",
                         raw_shares.len(), raw_shares[0].pt, raw_shares[0].ptbits[0], raw_shares[0].ptbits[1], raw_shares[0].ptbits[2], raw_shares[0].ptbits[3]);
 
                 // If specified, save enclave's output
                 if let Some(path) = input.get_output {
                     save_output(attestation_blob, response.signed_shares, &enc_shares, session_id, &path)?;
-                    println!("Downloaded enclave output to {path:?}!")
+                    println!("\nDownloaded enclave output to {path:?}!")
                 }
             }
             RequestType::Verify => {

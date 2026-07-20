@@ -29,7 +29,7 @@ pub fn verify_session(attestation_blob: &[u8], signed_shares: &Vec<Signature>, e
 
 /// Given an [`AttestationDoc`], checks if attestation is session and scheme correct, and if output is attested by the attestation
 pub fn verify_enclave_attestation(attestation: &AttestationDoc, signed_shares: &Vec<Signature>, enc_shares: &Vec<Vec<u8>>, session_input: &SessionInput) -> Result<(), Error>{
-    println!("- Enclave scheme verification");
+    println!("\nEnclave scheme verification");
     verify_enclave_signatures(attestation, signed_shares, enc_shares)?;
     println!("-- Verified enclave's output was signed by the public key in the enclave's attestation!");
     verify_session_id(attestation, session_input.session_id)?;
@@ -102,7 +102,7 @@ fn verify_enclave_signatures(attestation: &AttestationDoc, signed_shares: &Vec<S
 /// Follows NSM documentation: 
 /// <https://github.com/aws/aws-nitro-enclaves-nsm-api/blob/1993eeb0620d35f5cefc50b17638b432325328f9/docs/attestation_process.md>
 pub fn verify_aws_attestation(attestation_blob: &[u8], attestation: &AttestationDoc) -> Result<(), Error>{
-    println!("- AWS valid attestation verification");
+    println!("\nAWS valid attestation verification");
     // 2.2 Check attesation's fields' sizes (Note steps 1 and 2 are already done by pontifex parsing)
     if !validate_content(&attestation) { return Err(Error::AttestVerify("Attestation's field sizes are incorrect".to_string())); }
     // 3. Verify certificates chain
