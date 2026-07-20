@@ -139,7 +139,7 @@ Does the full scheme as described in [Overview](#overview). Sends a random reque
 |------|---------|
 | `-s` / `--session-id` `<YOUR-SESSION-ID>` | A nonce the attestation must contain (default: `0`) |
 | `--pcr <INDEX>=<PCR-VALUE>` | Expected PCR(s) (optional, repeatable) |
-| `--get-attest [DIR-PATH]` | Save attestation + shares, with optional path (optional, default: `.`) |
+| `--get-attest [DIR-PATH]` | Save attestation + shares (optional, default: `.`) |
 
 Examples:
 ```bash
