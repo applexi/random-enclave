@@ -6,7 +6,7 @@ Additional features include:
 - specify a session ID for a random request that the attestation should contain
 - save the attestation and outputs from a random request
 - verify an attestation is a valid AWS attestation
-- verify an attestation based on the enclave scheme (if you want to edit an attestation in json form)
+- verify outputs based on an attestation and the enclave scheme (if you want to edit an attestation in json form)
 
 The vsock communication is done using [Pontifex](https://github.com/worldcoin/pontifex)!
 
@@ -64,7 +64,7 @@ docker build -t random-enclave .
 
 ### Build EIF
 
-If you have a private key and signing certificate [See here to set it up](#optional-setting-up-pcr8):
+If you have a private key and signing certificate [(set it up here)](#optional-setting-up-pcr8):
 
 ```bash 
 nitro-cli build-enclave \
@@ -159,6 +159,7 @@ Examples:
 Tests the host's local verification process and does not call the enclave. Behavior depends on what you pass:
 
 | Flag | Meaning |
+|------|---------|
 | `-s` / `--session-id` `<YOUR-SESSION-ID>` | Same as in [random](#random) (default: # in `--attestation` file, else `0`) |
 | `--pcr <INDEX>=<PCR-VALUE>` | Same as in [random](#random) (optional, repeatable) |
 | `--attestation <PATH (.bin/.json)>` | If (.bin), checks valid attestation. If (.json), checks scheme. |
