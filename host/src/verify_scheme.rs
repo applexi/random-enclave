@@ -4,6 +4,7 @@
 //! This module contains:
 //! - AWS valid attestation verification (based on NSM documentation <https://github.com/aws/aws-nitro-enclaves-nsm-api/blob/1993eeb0620d35f5cefc50b17638b432325328f9/docs/attestation_process.md>)
 //! - Enclave scheme verification (output signed by enclave, correct session ID, correct PCRs)
+//! - Helper functions to save attestation and shares, and to obtain them from valid paths
 
 use std::{iter::zip, fs, path::Path};
 use libc::time_t;

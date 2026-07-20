@@ -1,3 +1,10 @@
+//! Given arithmetic and binary sharings, a [`TryCryptoRng`], and [`DEFAULT_N`] public keys, generates [`DEFAULT_N`] correlated random signed encrypted arithmetic and binary shares
+//! 
+//! This module contains:
+//! - Generate a random and its arithmetic and binary shares, and a random signing keypair
+//! - Helper functions to encrypt and then sign those shares given [`DEFAULT_N`] public keys
+//! - Tests to check scheme correctness
+
 use rand::{TryCryptoRng, rand_core::UnwrapErr};
 use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 use ecies::encrypt;
