@@ -216,7 +216,7 @@ nitro-cli terminate-enclave --enclave-id <YOUR-ENCLAVE-ID>
 ## Tests
 
 The crate comes with enclave sanity tests in [scheme](./enclave/src/scheme.rs). Run the following to check correctness of the secret sharing, signing, and encryption:
-
+ 
 ```bash
 cargo test --package enclave
 ```
