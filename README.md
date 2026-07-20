@@ -127,7 +127,7 @@ cd random-enclave
 cargo run --package host -- --enclave-cid <YOUR-ENCLAVE-CID>
 ```
 
-You should see `Connected to enclave <YOUR-ENCLAVE-CID> on port 1000` and a `>` prompting user input. Each line is a clap command; type `--help` for all flags.
+You should see `Connected to enclave <YOUR-ENCLAVE-CID> on port 1000` and a `>` prompting user input. Type `--help` for all flags.
 
 There are three possible requests (`-r`/ `--request`):
 
@@ -195,7 +195,7 @@ Examples:
 # Must include `--signed-shares` and `--enc-shares`
 --request verify \
     --attestation ./enclave-output/attestation-888.json \
-    --signed-shares ./enclave-output/signed-shares-888.bin \
+    --signed-shares ./enclave-output/signed-shares-888.cbor \
     --enc-shares ./enclave-output/enc-shares-888.cbor
 ```
 

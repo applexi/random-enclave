@@ -1,5 +1,7 @@
-use clap::{Parser, ValueEnum};
+use clap::{ArgAction, Parser, ValueEnum};
 use std::{io::{Write, stdin, stdout}, path::PathBuf};
+use env_logger::Builder;
+use log::LevelFilter;
 use crate::Error;
 
 #[derive(Parser, Debug)]
@@ -26,9 +28,11 @@ pub struct CliHost {
     /// PCR values the enclave attestation must have
     #[arg(long = "pcr", value_name = "(PCR_INDEX)=(EXPECTED_PCR_VALUE)", value_parser = parse_pcr)]
     pub pcrs: Option<Vec<(usize, String)>>,
+
     /// Only for random: to download the enclave's output (attestation + shares), with an optional path
     #[arg(long = "get-attest", value_name = "PATH", num_args = 0..=1, default_missing_value = ".")]
     pub get_output: Option<PathBuf>,
+
     /// Only for verify: specific attestation's path to verify
     #[arg(long = "attestation", value_name = "FILE_PATH (.bin) or (.json)", required_if_eq("request", "verify"))]
     pub attest_path: Option<PathBuf>,
@@ -38,6 +42,10 @@ pub struct CliHost {
     /// Only for verify: encrypted shares path. If not included, only checks if attestation is valid AWS
     #[arg(long = "enc-shares", value_name = "FILE_PATH (.cbor)")]
     pub enc_shares_path: Option<PathBuf>,
+
+    /// Verbose
+    #[arg(short = 'v', long, action = ArgAction::Count, default_value_t = 1)]
+    pub verbose: u8,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -65,4 +73,17 @@ fn parse_pcr(s: &str) -> Result<(usize, String), String>{
         return Err("The AWS attestation's max pcr index is 31.".to_string());
     }   
     Ok((index, value.to_string()))
+}
+
+pub fn init_logger(verbose: u8) {
+    let level = match verbose {
+        0 => LevelFilter::Warn,
+        1 => LevelFilter::Info,
+        2 => LevelFilter::Trace,
+        _ => LevelFilter::Info,
+    };
+    Builder::new()
+        .target(env_logger::Target::Stdout)
+        .filter_level(level)
+        .init();
 }

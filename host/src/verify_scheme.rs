@@ -11,6 +11,7 @@ use libc::time_t;
 use hex;
 use ed25519_dalek::{Signature, Verifier, VerifyingKey, PUBLIC_KEY_LENGTH};
 use aws_nitro_enclaves_cose::{CoseSign1, crypto::Openssl};
+use log::{info, trace};
 use openssl::{stack::Stack, x509::{X509, X509StoreContext, store::X509StoreBuilder, verify::{X509VerifyFlags, X509VerifyParam}}};
 use pontifex::{AttestationDoc, SecureModule, nsm::Digest};
 use serde_bytes::{ByteArray};
@@ -29,13 +30,13 @@ pub fn verify_session(attestation_blob: &[u8], signed_shares: &Vec<Signature>, e
 
 /// Given an [`AttestationDoc`], checks if attestation is session and scheme correct, and if output is attested by the attestation
 pub fn verify_enclave_attestation(attestation: &AttestationDoc, signed_shares: &Vec<Signature>, enc_shares: &Vec<Vec<u8>>, session_input: &SessionInput) -> Result<(), Error>{
-    println!("\nEnclave scheme verification");
+    info!("\nVerifying enclave scheme...");
     verify_enclave_signatures(attestation, signed_shares, enc_shares)?;
-    println!("-- Verified enclave's output was signed by the public key in the enclave's attestation!");
+    trace!("-- Verified enclave's output was signed by the public key in the enclave's attestation!");
     verify_session_id(attestation, session_input.session_id)?;
-    println!("-- Verified attestation's session ID is {:?}!", session_input.session_id);
+    trace!("-- Verified attestation's session ID is {:?}!", session_input.session_id);
     verify_pcrs(attestation, &session_input.pcrs)?;
-    println!("-- Verified attestation's PCRs are nonzero (and correct if random request included both PCR fields)!");
+    trace!("-- Verified attestation's PCRs are nonzero (and correct if random request included both PCR fields)!");
     // TODO: check if party public keys are consensus set
     Ok(())
 }
@@ -102,15 +103,15 @@ fn verify_enclave_signatures(attestation: &AttestationDoc, signed_shares: &Vec<S
 /// Follows NSM documentation: 
 /// <https://github.com/aws/aws-nitro-enclaves-nsm-api/blob/1993eeb0620d35f5cefc50b17638b432325328f9/docs/attestation_process.md>
 pub fn verify_aws_attestation(attestation_blob: &[u8], attestation: &AttestationDoc) -> Result<(), Error>{
-    println!("\nAWS valid attestation verification");
+    info!("\nVerifying attestation is valid AWS attestation...");
     // 2.2 Check attesation's fields' sizes (Note steps 1 and 2 are already done by pontifex parsing)
     if !validate_content(&attestation) { return Err(Error::AttestVerify("Attestation's field sizes are incorrect".to_string())); }
     // 3. Verify certificates chain
     verify_certificate_chain(&attestation)?;
-    println!("-- Verified attestation's certificates chain!");
+    trace!("-- Verified attestation's certificates chain!");
     // 4. Ensure Signed Attestation Document was correctly signed
     verify_aws_signature(attestation_blob, &attestation)?;
-    println!("-- Verified attestation was signed by AWS!");
+    trace!("-- Verified attestation was signed by AWS!");
     Ok(())
 }
 
@@ -224,12 +225,17 @@ pub fn save_output(attestation_blob: &[u8], signed_shares: Vec<ByteArray<64>>, e
     let signed_blob = serde_cbor::to_vec(&signed_shares)?;
 
     fs::create_dir_all(&dir_path)?;
-    fs::write(blob_path, attestation_blob)?;
-    fs::write(json_path, doc_json)?;
-    fs::write(signed_blob_path, signed_blob)?;
-    fs::write(enc_blob_path, enc_blob)?;
-    fs::write(share_json_path, shares_json)?;
+    fs::write(&blob_path, attestation_blob)?;
+    fs::write(&json_path, doc_json)?;
+    fs::write(&signed_blob_path, signed_blob)?;
+    fs::write(&enc_blob_path, enc_blob)?;
+    fs::write(&share_json_path, shares_json)?;
 
+    info!("\nSaved enclave outputs to {dir_path:?}!");
+    trace!("-- Attesation binary: {blob_path:?}");
+    trace!("-- Attesation json: {json_path:?}");
+    trace!("-- Signed + encrypted shares: {signed_blob_path:?}");
+    trace!("-- Encrypted shares: {enc_blob_path:?}");
     Ok(dir_path)
 }
 
