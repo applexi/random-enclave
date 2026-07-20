@@ -19,7 +19,7 @@ use crate::{Error, SessionInput, DEFAULT_N};
 const AWS_ROOT_CERT_PATH: &str = "host/root.pem";
 
 /// Given a binary blob attestation, checks if valid AWS attestation and if the attestation's measurements are expected respective to the enclave scheme
-pub fn verify_session(attestation_blob: &[u8], signed_shares: Vec<Signature>, enc_shares: &Vec<Vec<u8>>, session_input: SessionInput) -> Result<(), Error> {
+pub fn verify_session(attestation_blob: &[u8], signed_shares: &Vec<Signature>, enc_shares: &Vec<Vec<u8>>, session_input: &SessionInput) -> Result<(), Error> {
     let attestation = SecureModule::parse_raw_attestation_doc(attestation_blob)?;
     verify_aws_attestation(attestation_blob, &attestation)?;
     verify_enclave_attestation(&attestation, signed_shares, enc_shares, session_input)?;
@@ -27,20 +27,20 @@ pub fn verify_session(attestation_blob: &[u8], signed_shares: Vec<Signature>, en
 }
 
 /// Given an [`AttestationDoc`], checks if attestation is session and scheme correct, and if output is attested by the attestation
-fn verify_enclave_attestation(attestation: &AttestationDoc, signed_shares: Vec<Signature>, enc_shares: &Vec<Vec<u8>>, session_input: SessionInput) -> Result<(), Error>{
+pub fn verify_enclave_attestation(attestation: &AttestationDoc, signed_shares: &Vec<Signature>, enc_shares: &Vec<Vec<u8>>, session_input: &SessionInput) -> Result<(), Error>{
     println!("- Enclave scheme verification");
     verify_enclave_signatures(attestation, signed_shares, enc_shares)?;
     println!("-- Verified enclave's output was signed by the public key in the enclave's attestation!");
     verify_session_id(attestation, session_input.session_id)?;
     println!("-- Verified attestation's session ID is {:?}!", session_input.session_id);
-    verify_pcrs(attestation, session_input.pcrs)?;
+    verify_pcrs(attestation, &session_input.pcrs)?;
     println!("-- Verified attestation's PCRs are nonzero (and correct if random request included both PCR fields)!");
     // TODO: check if party public keys are consensus set
     Ok(())
 }
 
 /// Verifies that all [`pcrs`][`AttestationDoc::pcrs`] are non-zero, and checks pcr3 and pcr8 for correctness
-fn verify_pcrs(attestation: &AttestationDoc, pcrs: Option<Vec<(usize, String)>>) -> Result<(), Error> {
+fn verify_pcrs(attestation: &AttestationDoc, pcrs: &Option<Vec<(usize, String)>>) -> Result<(), Error> {
     let attest_pcrs = &attestation.pcrs;
     for (i, pcr) in attest_pcrs {
         // PCRs 0-2 and 8 should not be zero
@@ -56,7 +56,7 @@ fn verify_pcrs(attestation: &AttestationDoc, pcrs: Option<Vec<(usize, String)>>)
     Ok(())
 }
 
-fn check_pcr(pcr_index: &usize, actual_pcr: &[u8], expected_pcr: String) -> Result<(), Error> {
+fn check_pcr(pcr_index: &usize, actual_pcr: &[u8], expected_pcr: &String) -> Result<(), Error> {
     let expected_pcr = hex::decode(expected_pcr.trim())?;
     if actual_pcr.as_ref() != expected_pcr.as_slice() {
         return Err(Error::AttestVerify(format!("Attestation pcr{pcr_index} {:?} doesn't match expected pcr{pcr_index} {:?}", actual_pcr.as_ref(), expected_pcr.as_slice())));
@@ -82,7 +82,7 @@ fn verify_session_id(attestation: &AttestationDoc, session_id: u64) -> Result<()
 /// Checks that `len(raw_shares) == len(signed_shares) == `[`DEFAULT_N`]
 /// 
 /// Requires [`public key`][`AttestationDoc::public_key`] to exist and be of type ed25519 [`VerifyingKey`]
-fn verify_enclave_signatures(attestation: &AttestationDoc, signed_shares: Vec<Signature>, enc_shares: &Vec<Vec<u8>>) -> Result<(), Error>{
+fn verify_enclave_signatures(attestation: &AttestationDoc, signed_shares: &Vec<Signature>, enc_shares: &Vec<Vec<u8>>) -> Result<(), Error>{
     if signed_shares.len() != enc_shares.len() { return Err(Error::AttestVerify(format!("Shares' lengths do not match {DEFAULT_N}."))); }
     let Some(enclave_pk) = &attestation.public_key else {
         return Err(Error::AttestVerify("Attestation's public_key field does not exist.".to_string()))
@@ -231,18 +231,23 @@ pub fn save_output(attestation_blob: &[u8], signed_shares: Vec<ByteArray<64>>, e
     Ok(())
 }
 
-/// Returns a binary blob attestation from a given file path. If file name was "attestation-{session id}.bin", also returns the session id
+/// Returns a binary blob attestation from a given file path. If file name was "attestation-{session id}", also returns the session id
 /// 
 /// Errors if file path could not be read
-pub fn attestation_from_path(path: &Path) -> Result<(Vec<u8>, Option<u64>), Error> {
+pub fn attestation_from_path(path: &Path) -> Result<(Vec<u8>, Option<u64>, bool), Error> {
     let attestation_blob = fs::read(path)?;
     let session_id = path
-        .file_name()
+        .file_stem()
         .and_then(|x| x.to_str())
         .and_then(|x| x.strip_prefix("attestation-"))
-        .and_then(|x| x.strip_suffix(".bin"))
         .and_then(|x| x.parse::<u64>().ok());
-    Ok((attestation_blob, session_id))
+    let Some(extension) = path.extension() else {
+        return Err(Error::AttestParse)
+    };
+    if extension.to_str() != Some(".bin") && extension.to_str() != Some(".json") {
+        return Err(Error::AttestParse)
+    };
+    Ok((attestation_blob, session_id, extension.to_str() == Some(".bin")))
 }
 
 pub fn shares_from_path(signed_path: &Path, enc_path: &Path) -> Result<(Vec<Signature>, Vec<Vec<u8>>), Error> {

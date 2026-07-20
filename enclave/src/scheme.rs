@@ -139,7 +139,7 @@ use super::*;
         let mut binary_recon: u64 = 0;
         for j in 0..num_bits {
             // Test each binary reconstruction is correct
-            let binary_fold = shares  
+            let binary_fold: bool = shares  
                 .iter()
                 .fold(false, |acc, RawShare{ ptbits: ctbits_i, .. }| acc ^ ctbits_i[j as usize]);
             let binary_shares : Vec<bool> = shares

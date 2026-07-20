@@ -1,11 +1,11 @@
 use host::RequestType::Quit;
-use pontifex::{ConnectionDetails, send};
+use pontifex::{AttestationDoc, ConnectionDetails, send};
 use serde_bytes::{ByteArray, ByteBuf};
 use ed25519_dalek::Signature;
 use clap::Parser;
 
 use host::{CliHost, CliInit, RequestType, get_line, shares_from_path};
-use host::{Error, SessionInput, generate_n_keys, decrypt_shares, verify_session, verify_aws_attestation};
+use host::{Error, SessionInput, generate_n_keys, decrypt_shares, verify_session, verify_aws_attestation, verify_enclave_attestation};
 use host::{save_output, attestation_from_path};
 use common::{SessionRequest, ENCLAVE_PORT};
 
@@ -16,6 +16,7 @@ async fn main() -> Result<(), Error> {
     println!("Connected to enclave {:?} on port {ENCLAVE_PORT}", args_init.enclave_cid);
     println!("For full commands, please enter \"--help\"");
     loop {
+        println!("====================================================================================================");
         let line = get_line()?;
         let input = match CliHost::try_parse_from(line.split_whitespace()) {
             Ok(input) => input,
@@ -23,7 +24,6 @@ async fn main() -> Result<(), Error> {
         };
         match input.request {
             RequestType::Random => {
-                println!("====================================================================================================");
                 println!("Enclave called with session id: {:?}\n", input.session_id);
                 let session_id = input.session_id;
                 let pcrs = input.pcrs;
@@ -51,7 +51,7 @@ async fn main() -> Result<(), Error> {
                     .map(|share| Signature::from_bytes(&ByteArray::into_array(*share)))
                     .collect();
                 let enc_shares = response.enc_shares;
-                verify_session(attestation_blob, signed_shares, &enc_shares, session_input)?;
+                verify_session(attestation_blob, &signed_shares, &enc_shares, &session_input)?;
                 println!("SUCCESS: Verification successful!");
 
                 // Decrypt shares
@@ -66,12 +66,11 @@ async fn main() -> Result<(), Error> {
                 }
             }
             RequestType::Verify => {
-                println!("====================================================================================================");
                 let Some(attest_path) = input.attest_path else {
                     println!("ERROR: Attestation path required for verification");
                     continue
                 };
-                let Some((attestation_blob, session_id)) = attestation_from_path(&attest_path).ok() else {
+                let Some((attestation_blob, session_id, is_bin)) = attestation_from_path(&attest_path).ok() else {
                     println!("ERROR: Attestation path is wrong");
                     continue
                 };
@@ -87,22 +86,35 @@ async fn main() -> Result<(), Error> {
                         println!("ERROR: Signed shares path and/or encrypted shares path are wrong");
                         continue
                     };
-                    if let Err(e) = verify_session(&attestation_blob, signed_shares, &enc_shares, session_input) {
+                    if is_bin && let Err(e) = verify_session(&attestation_blob, &signed_shares, &enc_shares, &session_input) {
                         println!("FAILED: Verification failed with error {e:?}");
                         continue
+                    } else {
+                        println!("Note: Attestation path given is (.json) not (.bin). Can only assume attestation was valid, and verify enclave scheme.");
+                        let attestation: AttestationDoc = serde_json::from_slice(&attestation_blob)?;
+                        if let Err(e) = verify_enclave_attestation(&attestation, &signed_shares, &enc_shares, &session_input) {
+                            println!("FAILED: Verification failed with error {e:?}");
+                            continue
+                        }
                     }
-                } else {
+                } else if is_bin {
+                    println!("Note: Only given an attestation path with no shares paths. Will only verify if attestation is valid.");
                     let attestation = pontifex::SecureModule::parse_raw_attestation_doc(&attestation_blob)?;
                     if let Err(e) = verify_aws_attestation(&attestation_blob, &attestation) {
                         println!("FAILED: Verification failed with error {e:?}");
                         continue
                     }
+                } else {
+                    println!("No verification could be done with the parameters given.");
+                    println!("For full verification: --attestation (.bin) and --signed-shares (.cbor) and --enc-shares (.cbor)");
+                    println!("For valid AWS attestation: --attestation (.bin)");
+                    println!("For just enclave scheme: --attestation (.json) and --signed-shares (.cbor) and --enc-shares (.cbor)")
                 }
                 println!("SUCCESS: Verification successful!");
             }
             Quit => break,
         }
-        println!("====================================================================================================");
+        println!("===========================================================================================================");
     }
     println!("Connection broken.");
     Ok(())

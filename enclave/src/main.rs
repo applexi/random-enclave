@@ -15,7 +15,6 @@ async fn main() -> Result<(), Error>{
     let nsm = SecureModule::try_init_global().await?;
     nsm_helper::check_nsm(&nsm)?; // NOTE: maybe best to move into router for lifetime security?
     
-    // NOTE: need to do encryption/decryption 
     let router = Router::new()
         .route::<SessionRequest, _, _>(|_state, request| async move {
             let nsm = SecureModule::global();
@@ -30,7 +29,7 @@ async fn main() -> Result<(), Error>{
                 .map(|key| &key[..])
                 .collect();
 
-            // Generate a random and obtain signed shares
+            // Generate a random and obtain signed and encrypted shares
             let (enclave_pk, signed_shares, enc_shares) = enclave_session(&arithmetic, &binary, &mut rng, &party_pks)
                 .expect("rng failure");
             let signed_shares: Vec<ByteArray<64>> = signed_shares

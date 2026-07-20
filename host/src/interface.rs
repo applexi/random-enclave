@@ -26,17 +26,17 @@ pub struct CliHost {
     /// PCR values the enclave attestation must have
     #[arg(long = "pcr", value_name = "(PCR_INDEX)=(EXPECTED_PCR_VALUE)", value_parser = parse_pcr)]
     pub pcrs: Option<Vec<(usize, String)>>,
-    /// For Random: to download the enclave's output (attestation + shares), with an optional path
+    /// Only for Random: to download the enclave's output (attestation + shares), with an optional path
     #[arg(long = "get-attest", value_name = "PATH", num_args = 0..=1, default_missing_value = ".")]
     pub get_output: Option<PathBuf>,
-    /// For Verify: specific attestation's path to verify
-    #[arg(long = "attest-path", value_name = "FILE_PATH (.bin)", required_if_eq("request", "verify"))]
+    /// Only for Verify: specific attestation's path to verify
+    #[arg(long = "attestation", value_name = "FILE_PATH (.bin) or (.json)", required_if_eq("request", "verify"))]
     pub attest_path: Option<PathBuf>,
-    /// For Verify: signed shares path. If not included, only checks if attestation is valid AWS
-    #[arg(long = "signed-shares-path", value_name = "FILE_PATH (.cbor)")]
+    /// Only for Verify: signed shares path. If not included, only checks if attestation is valid AWS
+    #[arg(long = "signed-shares", value_name = "FILE_PATH (.cbor)")]
     pub signed_shares_path: Option<PathBuf>,
-    /// For Verify: encrypted shares path. If not included, only checks if attestation is valid AWS
-    #[arg(long = "enc-shares-path", value_name = "FILE_PATH (.cbor)")]
+    /// Only for Verify: encrypted shares path. If not included, only checks if attestation is valid AWS
+    #[arg(long = "enc-shares", value_name = "FILE_PATH (.cbor)")]
     pub enc_shares_path: Option<PathBuf>,
 }
 
