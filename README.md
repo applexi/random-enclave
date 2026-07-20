@@ -122,6 +122,8 @@ Save the enclave's `EnclaveID`, `EnclaveCID`, and listed PCRs for later usage + 
 
 Ensure you have the enclave running. Now, let's set up "host", or the client side.
 
+To reduce verbosity (default level `-vvv`), add tag `-v` (warnings only) or `-vvv` (reduced trace) to the `cargo run` command.
+
 ```bash
 cd random-enclave
 cargo run --package host -- --enclave-cid <YOUR-ENCLAVE-CID>

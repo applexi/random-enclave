@@ -13,16 +13,17 @@ use common::{SessionRequest, ENCLAVE_PORT};
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     let args_init = CliInit::parse();
+    init_logger(args_init.verbose);
     let connection = ConnectionDetails::new(args_init.enclave_cid, ENCLAVE_PORT);
     println!("Connected to enclave {:?} on port {ENCLAVE_PORT}", args_init.enclave_cid);
     println!("For full commands, please enter \"--help\"");
     loop {
+
         let line = get_line()?;
         let input = match CliHost::try_parse_from(line.split_whitespace()) {
             Ok(input) => input,
             Err(e) => { println!("{e}"); continue }
         };
-        init_logger(input.verbose);
         match input.request {
             RequestType::Random => {
                 info!("\nEnclave called with session id: {:?}", input.session_id);

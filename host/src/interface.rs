@@ -8,6 +8,8 @@ use crate::Error;
 pub struct CliInit {
     #[arg(long = "enclave-cid")]
     pub enclave_cid: u32,
+    #[arg(short = 'v', long, action = ArgAction::Count, default_value_t = 3)]
+    pub verbose: u8,
 }
 
 #[derive(Debug, Clone, ValueEnum)]
@@ -42,10 +44,6 @@ pub struct CliHost {
     /// Only for verify: encrypted shares path. If not included, only checks if attestation is valid AWS
     #[arg(long = "enc-shares", value_name = "FILE_PATH (.cbor)")]
     pub enc_shares_path: Option<PathBuf>,
-
-    /// Verbose
-    #[arg(short = 'v', long, action = ArgAction::Count, default_value_t = 1)]
-    pub verbose: u8,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -77,12 +75,12 @@ fn parse_pcr(s: &str) -> Result<(usize, String), String>{
 
 pub fn init_logger(verbose: u8) {
     let level = match verbose {
-        0 => LevelFilter::Warn,
-        1 => LevelFilter::Info,
-        2 => LevelFilter::Trace,
-        _ => LevelFilter::Info,
+        1 => LevelFilter::Warn,
+        2 => LevelFilter::Info,
+        3 => LevelFilter::Trace,
+        _ => LevelFilter::Trace,
     };
-    Builder::new()
+    return Builder::new()
         .target(env_logger::Target::Stdout)
         .filter_level(level)
         .format_level(false)
