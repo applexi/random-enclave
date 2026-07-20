@@ -16,7 +16,7 @@ async fn main() -> Result<(), Error> {
     println!("Connected to enclave {:?} on port {ENCLAVE_PORT}", args_init.enclave_cid);
     println!("For full commands, please enter \"--help\"");
     loop {
-        println!("====================================================================================================");
+        println!("===========================================================================================================");
         let line = get_line()?;
         let input = match CliHost::try_parse_from(line.split_whitespace()) {
             Ok(input) => input,
