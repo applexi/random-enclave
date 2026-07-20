@@ -17,7 +17,7 @@ pub enum RequestType {
 
 #[derive(Parser, Debug)]
 pub struct CliHost {
-    /// Request "random" for a random shares request to the enclave, "verify" to verify an attestation, "quit" to disconnect
+    /// The interactive request type
     #[arg(short = 'r', long, value_enum)]
     pub request: RequestType,
     /// A nonce that the enclave attestation must contain
@@ -26,16 +26,16 @@ pub struct CliHost {
     /// PCR values the enclave attestation must have
     #[arg(long = "pcr", value_name = "(PCR_INDEX)=(EXPECTED_PCR_VALUE)", value_parser = parse_pcr)]
     pub pcrs: Option<Vec<(usize, String)>>,
-    /// Only for Random: to download the enclave's output (attestation + shares), with an optional path
+    /// Only for random: to download the enclave's output (attestation + shares), with an optional path
     #[arg(long = "get-attest", value_name = "PATH", num_args = 0..=1, default_missing_value = ".")]
     pub get_output: Option<PathBuf>,
-    /// Only for Verify: specific attestation's path to verify
+    /// Only for verify: specific attestation's path to verify
     #[arg(long = "attestation", value_name = "FILE_PATH (.bin) or (.json)", required_if_eq("request", "verify"))]
     pub attest_path: Option<PathBuf>,
-    /// Only for Verify: signed shares path. If not included, only checks if attestation is valid AWS
+    /// Only for verify: signed shares path. If not included, only checks if attestation is valid AWS
     #[arg(long = "signed-shares", value_name = "FILE_PATH (.cbor)")]
     pub signed_shares_path: Option<PathBuf>,
-    /// Only for Verify: encrypted shares path. If not included, only checks if attestation is valid AWS
+    /// Only for verify: encrypted shares path. If not included, only checks if attestation is valid AWS
     #[arg(long = "enc-shares", value_name = "FILE_PATH (.cbor)")]
     pub enc_shares_path: Option<PathBuf>,
 }
@@ -47,6 +47,7 @@ pub struct SessionInput {
 }
 
 pub fn get_line() -> Result<String, Error> {
+    println!("==============================================================================================================\n");
     print!("> ");
     stdout().flush()?;
     let mut line = String::new();
