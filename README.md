@@ -166,7 +166,7 @@ Tests the host's local verification process and does not call the enclave. Behav
 |------|---------|
 | `-s` / `--session-id` `<YOUR-SESSION-ID>` | Same as in [random](#random) (default: # in `--attestation` file, else `0`) |
 | `--pcr <INDEX>=<PCR-VALUE>` | Same as in [random](#random) (optional, repeatable) |
-| `--attestation <PATH (.bin/.json)>` | If (.bin), checks valid attestation. If (.json), checks scheme. |
+| `--attestation <PATH (.bin/.json)>` | Attestation path. If (.json), can only check scheme. |
 | `--signed-shares <PATH (.cbor)>` | Path to signed + encrypted shares (optional) |
 | `--enc-shares <PATH> (.cbor)>` | Path to encrypted shares (optional) |
 
