@@ -32,7 +32,10 @@ async fn main() -> Result<(), Error> {
                 let session_input = SessionInput{ session_id, pcrs };
 
                 // Generate N random mock party keypairs, and sends session ID and party public keys to enclave
-                let (party_sks, party_pks) = generate_n_keys()?;
+                let Some((party_sks, party_pks)) = generate_n_keys().ok() else {
+                    warn!("ERROR: Public keys could not be generated");
+                    continue
+                };
                 let party_pks = party_pks
                     .iter()
                     .map(|key| ByteArray::from(key.to_bytes()))
@@ -53,17 +56,25 @@ async fn main() -> Result<(), Error> {
                     .map(|share| Signature::from_bytes(&ByteArray::into_array(*share)))
                     .collect();
                 let enc_shares = response.enc_shares;
-                verify_session(attestation_blob, &signed_shares, &enc_shares, &session_input)?;
-                info!("\nSUCCESS: Verification successful!");
+                if let Err(e) = verify_session(attestation_blob, &signed_shares, &enc_shares, &session_input) {
+                    warn!("FAILED: Verification failed with error {e:?}");
+                } else { info!("\nSUCCESS: Verification successful!"); }
 
                 // Decrypt shares
-                let raw_shares = decrypt_shares(&enc_shares, &party_sks)?;
-                info!("\nObtained {:?} raw shares: [RawShare{{ pt: {:?}, ptbits: [{:?}, {:?}, {:?}, {:?}, ...] }}, ...",
-                        raw_shares.len(), raw_shares[0].pt, raw_shares[0].ptbits[0], raw_shares[0].ptbits[1], raw_shares[0].ptbits[2], raw_shares[0].ptbits[3]);
+                match decrypt_shares(&enc_shares, &party_sks) {
+                    Ok(raw_shares) => { 
+                        info!("\nObtained {:?} raw shares: [RawShare{{ pt: {:?}, ptbits: [{:?}, {:?}, {:?}, {:?}, ...] }}, ...",
+                        raw_shares.len(), raw_shares[0].pt, raw_shares[0].ptbits[0], raw_shares[0].ptbits[1], raw_shares[0].ptbits[2], raw_shares[0].ptbits[3])
+                    },
+                    Err(e) => warn!("ERROR: Decrypting shares failed with error {e:?}")
+                };
 
                 // If specified, save enclave's output
                 if let Some(path) = input.get_output {
-                    save_output(attestation_blob, response.signed_shares, &enc_shares, session_id, &path)?;
+                    if let Err(e) = save_output(attestation_blob, response.signed_shares, &enc_shares, session_id, &path) {
+                        warn!("ERROR: Saving enclave outputs failed with error {e:?}");
+                        continue
+                    }
                 }
             }
             RequestType::Verify => {
