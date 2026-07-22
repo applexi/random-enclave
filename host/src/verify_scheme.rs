@@ -1,10 +1,13 @@
 //! Given an attestation and output from the TEE scheme, verifies that it is a valid AWS attestation, and that the output is "correct"
-//! - Relies on an internal `AWS_ROOT_CERT_PATH`, and assumes it contains the correct public AWS root certificate
+//! - Relies on an internal `aws_root_cert_path`, and assumes it contains the correct public AWS root certificate
 //! 
 //! This module contains:
 //! - AWS valid attestation verification (based on NSM documentation <https://github.com/aws/aws-nitro-enclaves-nsm-api/blob/1993eeb0620d35f5cefc50b17638b432325328f9/docs/attestation_process.md>)
 //! - Enclave scheme verification (output signed by enclave, correct session ID, correct PCRs)
 //! - Helper functions to save attestation and shares, and to obtain them from valid paths
+
+#[cfg(test)]
+mod tests;
 
 use std::{fs, iter::zip, path::{Path, PathBuf}};
 use libc::time_t;
@@ -18,7 +21,9 @@ use serde_bytes::{ByteArray};
 
 use crate::{Error, SessionInput, DEFAULT_N};
 
-const AWS_ROOT_CERT_PATH: &str = "host/root.pem";
+fn aws_root_cert_path() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("root.pem")
+}
 
 /// Given a binary blob attestation, checks if valid AWS attestation and if the attestation's measurements are expected respective to the enclave scheme
 pub fn verify_session(attestation_blob: &[u8], signed_shares: &Vec<Signature>, enc_shares: &Vec<Vec<u8>>, session_input: &SessionInput) -> Result<(), Error> {
@@ -161,7 +166,7 @@ fn validate_content(attestation: &AttestationDoc) -> bool {
 /// 
 /// Relies on internal `AWS_ROOT_CERT_PATH` to contain the correct public AWS root certificate
 fn verify_certificate_chain(attestation: &AttestationDoc) -> Result<(), Error> {
-    let aws_root_cert: &[u8] = &std::fs::read(AWS_ROOT_CERT_PATH)?;
+    let aws_root_cert: &[u8] = &std::fs::read(aws_root_cert_path())?;
     let aws_root_cert = X509::from_pem(aws_root_cert)?;
 
     // AWS cabundle order: {root_cert, interm_1, ..., interm_n} (target_cert)
@@ -202,7 +207,9 @@ fn verify_aws_signature(attestation_blob: &[u8], attestation: &AttestationDoc) -
     let cose = CoseSign1::from_bytes(attestation_blob)?;
     let target_cert = X509::from_der(&attestation.certificate)?;
     let key = target_cert.public_key()?;
-    cose.verify_signature::<Openssl>(&key)?;
+    if !cose.verify_signature::<Openssl>(&key)? {
+        return Err(Error::AttestVerify("COSE signature invalid".to_string()));
+    }
     Ok(())
 }
 
@@ -239,7 +246,7 @@ pub fn save_output(attestation_blob: &[u8], signed_shares: Vec<ByteArray<64>>, e
     Ok(dir_path)
 }
 
-/// Returns a binary blob attestation from a given file path. If file name was "attestation-{session id}", also returns the session id
+/// Returns a binary blob attestation from a given file path and if it is a (.bin). If file name was "attestation-{session id}", also returns the session id
 /// 
 /// Errors if file path could not be read
 pub fn attestation_from_path(path: &Path) -> Result<(Vec<u8>, Option<u64>, bool), Error> {
@@ -252,10 +259,11 @@ pub fn attestation_from_path(path: &Path) -> Result<(Vec<u8>, Option<u64>, bool)
     let Some(extension) = path.extension() else {
         return Err(Error::AttestParse)
     };
-    if extension.to_str() != Some(".bin") && extension.to_str() != Some(".json") {
+    if extension.to_str() != Some("bin") && extension.to_str() != Some("json") {
+        dbg!("here");
         return Err(Error::AttestParse)
     };
-    Ok((attestation_blob, session_id, extension.to_str() == Some(".bin")))
+    Ok((attestation_blob, session_id, extension.to_str() == Some("bin")))
 }
 
 pub fn shares_from_path(signed_path: &Path, enc_path: &Path) -> Result<(Vec<Signature>, Vec<Vec<u8>>), Error> {

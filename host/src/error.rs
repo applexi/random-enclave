@@ -15,6 +15,7 @@ pub enum Error {
     Hex,
     Ecies,
     Vec,
+    Test(String),
 }
 
 impl std::fmt::Display for Error {
