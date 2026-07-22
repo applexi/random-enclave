@@ -98,9 +98,11 @@ async fn main() -> Result<(), Error> {
                         warn!("ERROR: Signed shares path and/or encrypted shares path are wrong");
                         continue
                     };
-                    if is_bin && let Err(e) = verify_session(&attestation_blob, &signed_shares, &enc_shares, &session_input) {
-                        warn!("FAILED: Verification failed with error {e:?}");
-                        continue
+                    if is_bin {
+                        if let Err(e) = verify_session(&attestation_blob, &signed_shares, &enc_shares, &session_input) {
+                            warn!("FAILED: Verification failed with error {e:?}");
+                            continue
+                        }
                     } else {
                         info!("Note: Attestation path given is (.json) not (.bin). Can only assume attestation was valid, and verify enclave scheme.");
                         let attestation: AttestationDoc = serde_json::from_slice(&attestation_blob)?;
