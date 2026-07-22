@@ -172,7 +172,7 @@ Tests the host's local verification process and does not call the enclave. Behav
 | `--signed-shares <PATH (.cbor)>` | Path to signed + encrypted shares (optional) |
 | `--enc-shares <PATH> (.cbor)>` | Path to encrypted shares (optional) |
 
-Note that if you edited a file (ex. a json attestation), then you will have to redo the [installation](#installation) process, including cargo, Docker, and EIF building.
+Note that if you edited a file (ex. a json attestation) and want to test with it, then you will have to redo the [installation](#installation) process, including cargo, Docker, and EIF building.
 
 Examples:
 ```bash
