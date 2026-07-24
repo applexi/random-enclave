@@ -129,7 +129,7 @@ cd random-enclave
 cargo run --package host -- --enclave-cid <YOUR-ENCLAVE-CID>
 ```
 
-You should see `Connected to enclave <YOUR-ENCLAVE-CID> on port 1000` and a `>` prompting user input. Type `--help` for all flags.
+You should see `Connected to enclave <YOUR-ENCLAVE-CID> on port 1000` and a `>` prompting user input. Type `--help` for all flags. For more information on the benchmarking flags, please take a look at the [benchmarking](#benchmarking) section.
 
 There are three possible requests (`-r`/ `--request`):
 
@@ -217,9 +217,76 @@ To fully terminate the enclave:
 nitro-cli terminate-enclave --enclave-id <YOUR-ENCLAVE-ID>
 ```
 
+## Benchmarking
+
+The crate comes with a benchmarking capability for specific functions, but the only current statistic right now is mean time.
+
+For benchmarking, it's recommended that when you first run the cargo, you set verbosity to `-v`.
+
+```bash
+cargo run --package host -- --enclave-cid <YOUR-ENCLAVE-ID> -v
+```
+
+Benchmark flags can be used with either [random](#random) or [verify](#verify) commands, but please note that if you choose verify, you will not receive any enclave benchmarks.
+
+| Flag | Meaning |
+|------|---------|
+| `-b` / `--benchmarks` `<BENCHMARKS>` | A selection of benchmarks. |
+| `--num-rounds` | Number of logged rounds (default: 1) |
+| `--warmup-rounds` | Not logged initial rounds (default: 0) |
+| `--get-benchmarks [DIR-PATH]` | Save benchmarks (optional, default: `.`) |
+
+Here are the following possible values to `-b` / `--benchmarks`:
+- `all` or `none` (Ex. `-b all` or `-b none`)
+- benchmark types surrounded by curly brackets (`{ ... }`) and separated by commas
+
+Here are the following benchmark types:
+
+| Benchmark type | Meaning |
+| `get-signing-keypair` | Enclave, signing keypair generation |
+| `encrypt-shares` | Enclave, encrypt N shares |
+| `sign-shares` | Enclave, sign N shares |
+| `get-attestation` | Enclave, request an attestation |
+| `verify-aws` | Host, verify valid AWS attestation |
+| `verify-scheme` | Host, verify enclave scheme |
+
+Examples:
+```bash
+# Get benchmarks and outputs for a random request with session ID 888, for all benchmark types
+-r random \
+    -s 888 \
+    --get-attest \
+    -b all \
+    --get-benchmarks
+
+# Get benchmarks for a random request, but only for benchmarks `get-attestation` and verification
+-r random \
+    -b {get-attestation, verify-aws, verify-scheme} \
+    --num-rounds 200 \
+    --warmup-rounds 50 \
+    --get-benchmarks
+
+# Get benchmark for only enclave scheme verification
+-r verify \
+    --attestation ./enclave-output/attestation-888.json \
+    -b {verify-scheme} \
+    --get-benchmarks
+```
+
 ## Tests
 
-The crate comes with tests in [scheme](./enclave/src/scheme/tests.rs) and in [verify_scheme](./host/src/verify_scheme/tests.rs).
+The crate comes with tests in [scheme](./enclave/src/scheme/tests.rs) and in [verify_scheme](./host/src/verify_scheme/tests.rs):
+- Enclave scheme:
+    - Small cache test to check randomness of enclave signing key and generated shares
+    - Guarantee correctness of the arithmetic and binary secret sharing, including correct correlation of outputs
+    - Check that encryption and signing of shares is correct
+    - Check that outputs are of size N
+- Host verification:
+    - Checks that a debug-mode (all zero PCRs) attestation is valid, but fails enclave scheme
+    - Checks that a randomly bit manipulated attestation binary blob fails verification
+    - Checks that valid CBOR field swapped attestations (ex. swap out two valid attestations' signature or payload fields) fails verification
+    - Checks that an attestation with a changed session ID, that is signed by an adversary who also edits its certificates to match the forged signature, passes signature verification but fails certificate chain verification
+    - Checks that given two valid attestation and output tuples, if swapped outputs, fails verification
 
 Run the following to check correctness of the enclave scheme's correlated random secret sharing, signing, and encryption:
  

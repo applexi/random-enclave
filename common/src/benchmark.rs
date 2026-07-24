@@ -88,7 +88,7 @@ impl LogConstructor {
             if i == self.warmup_count { start = Instant::now(); }
             std::hint::black_box(op());
         }
-        self.logs.insert(benchmark_type, start.elapsed().div_f32(self.num_count as f32));
+        self.logs.entry(benchmark_type).or_insert(start.elapsed().div_f32(self.num_count as f32));
         op()
     }
 

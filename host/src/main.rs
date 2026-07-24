@@ -87,8 +87,11 @@ async fn main() -> Result<(), Error> {
                 }
 
                 // If specified, save the benchmarks
-                if let Some(path) = input.benchmark_path && let Some(benchmarks) = response.benchmarks {
-                    if let Err(e) = save_benchmarks(benchmarks, &path) {
+                let host_benchmarks = logger.into_stats();
+                if let Some(mut benchmarks) = response.benchmarks {
+                    benchmarks.extend(host_benchmarks);
+                    info!("\nBenchmarks: \n{:?}", benchmarks);
+                    if let Some(path) = input.benchmark_path && let Err(e) = save_benchmarks(benchmarks, input.num_rounds, input.warmup_rounds, &path) {
                         warn!("ERROR: Saving benchmarks failed with error {e:?}");
                         continue
                     }
@@ -149,7 +152,7 @@ async fn main() -> Result<(), Error> {
                 // If specified, save the benchmarks
                 let benchmarks = logger.into_stats();
                 if let Some(path) = input.benchmark_path && benchmarks.len() > 0 {
-                    if let Err(e) = save_benchmarks(benchmarks, &path) {
+                    if let Err(e) = save_benchmarks(benchmarks, input.num_rounds, input.warmup_rounds, &path) {
                         warn!("ERROR: Saving benchmarks failed with error {e:?}");
                         continue
                     }

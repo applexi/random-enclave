@@ -51,17 +51,17 @@ pub struct CliHost {
             all, none, or {benchmark types separated by commas}
         
         With the following benchmark types (can mix and match):
-            --for enclave: enclave-session, get-signing-keypair, encrypt-shares, sign-shares, get-attestation
+            --for enclave: get-signing-keypair, encrypt-shares, sign-shares, get-attestation
             --for host: verify-aws, verify-scheme ")]
     pub benchmark_types: BenchmarkSelection,
     /// Only for benchmarking: number of logged rounds (does not include warmup rounds)
-    #[arg(long = "rounds", default_value_t = 1)]
+    #[arg(long = "num-rounds", default_value_t = 1)]
     pub num_rounds: u32,
     /// Only for benchmarking: number of warmup rounds before actual logged rounds
-    #[arg(long = "warmup", default_value_t = 0)]
+    #[arg(long = "warmup-rounds", default_value_t = 0)]
     pub warmup_rounds: u32,
     /// Only for benchmarking: to save the benchmarks, with an optional path
-    #[arg(long = "bench-path", value_name = "PATH", num_args = 0..=1, default_missing_value = ".")]
+    #[arg(long = "get-benchmarks", value_name = "PATH", num_args = 0..=1, default_missing_value = ".")]
     pub benchmark_path: Option<PathBuf>,
 }
 

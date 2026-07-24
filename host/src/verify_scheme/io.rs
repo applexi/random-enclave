@@ -69,14 +69,15 @@ pub fn shares_from_path(signed_path: &Path, enc_path: &Path) -> Result<(Vec<Sign
     Ok((signed_shares, enc_shares))
 }
 
-pub fn save_benchmarks(benchmarks: BenchmarkResponse, path: &Path) -> Result<PathBuf, Error> {
+pub fn save_benchmarks(benchmarks: BenchmarkResponse, num_rounds: u32, warmup_rounds: u32, path: &Path) -> Result<PathBuf, Error> {
     let mut dir_path = path.to_path_buf();
     if !path.ends_with("benchmarks") {
         dir_path = dir_path.join("benchmarks");
     }
 
     let bench_path = dir_path.join(format!("benchmarks.json"));
-    let benchmark_blob = serde_json::to_vec_pretty(&benchmarks)?;
+    let bench_json = serde_json::json!({"warmup-rounds": warmup_rounds, "num-rounds": num_rounds, "benchmarks": benchmarks});
+    let benchmark_blob = serde_json::to_vec_pretty(&bench_json)?;
 
     fs::create_dir_all(&dir_path)?;
     fs::write(&bench_path, benchmark_blob)?;
