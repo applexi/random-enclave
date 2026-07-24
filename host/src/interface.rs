@@ -1,8 +1,8 @@
 use clap::{ArgAction, Parser, ValueEnum};
-use std::{io::{Write, stdin, stdout}, path::PathBuf};
+use std::{collections::HashSet, io::{Write, stdin, stdout}, path::PathBuf, str::FromStr};
 use env_logger::Builder;
 use log::LevelFilter;
-use crate::Error;
+use crate::{Error, BenchmarkSelection, BenchmarkType};
 
 #[derive(Parser, Debug)]
 pub struct CliInit {
@@ -31,7 +31,7 @@ pub struct CliHost {
     #[arg(long = "pcr", value_name = "(PCR_INDEX)=(EXPECTED_PCR_VALUE)", value_parser = parse_pcr)]
     pub pcrs: Option<Vec<(usize, String)>>,
 
-    /// Only for random: to download the enclave's output (attestation + shares), with an optional path
+    /// Only for random: to save the enclave's output (attestation + shares), with an optional path
     #[arg(long = "get-attest", value_name = "PATH", num_args = 0..=1, default_missing_value = ".")]
     pub get_output: Option<PathBuf>,
 
@@ -44,6 +44,25 @@ pub struct CliHost {
     /// Only for verify: encrypted shares path. If not included, only checks if attestation is valid AWS
     #[arg(long = "enc-shares", value_name = "FILE_PATH (.cbor)")]
     pub enc_shares_path: Option<PathBuf>,
+
+    #[arg(short = 'b', long = "benchmarks", value_name = "{BENCHMARK_TYPE1, BENCHMARK_TYPE2, ...}", value_parser = parse_benchmarks, default_value = "none", help = "\
+        Select one or more benchmark types to run with the following possible values:
+            
+            all, none, or {benchmark types separated by commas}
+        
+        With the following benchmark types (can mix and match):
+            --for enclave: enclave-session, get-signing-keypair, encrypt-shares, sign-shares, get-attestation
+            --for host: verify-aws, verify-scheme ")]
+    pub benchmark_types: BenchmarkSelection,
+    /// Only for benchmarking: number of logged rounds (does not include warmup rounds)
+    #[arg(long = "rounds", default_value_t = 1)]
+    pub num_rounds: u32,
+    /// Only for benchmarking: number of warmup rounds before actual logged rounds
+    #[arg(long = "warmup", default_value_t = 0)]
+    pub warmup_rounds: u32,
+    /// Only for benchmarking: to save the benchmarks, with an optional path
+    #[arg(long = "bench-path", value_name = "PATH", num_args = 0..=1, default_missing_value = ".")]
+    pub benchmark_path: Option<PathBuf>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -62,7 +81,7 @@ pub fn get_line() -> Result<String, Error> {
     Ok(line)
 }
 
-fn parse_pcr(s: &str) -> Result<(usize, String), String>{
+fn parse_pcr(s: &str) -> Result<(usize, String), String> {
     let Some((index, value)) = s.split_once('=') else {
         return Err("Field 'pcr' requires value of (index)=(value)".to_string())
     };
@@ -73,7 +92,26 @@ fn parse_pcr(s: &str) -> Result<(usize, String), String>{
     Ok((index, value.to_string()))
 }
 
-pub fn init_logger(verbose: u8) {
+fn parse_benchmarks(s: &str) -> Result<BenchmarkSelection, String> {
+    let s = &s.to_ascii_lowercase();
+    if s == "all" { return Ok(BenchmarkSelection::All); }
+    if s == "none" { return Ok(BenchmarkSelection::None); }
+
+    let Some(benchmarks) = s
+        .strip_prefix("{")
+        .and_then(|s| s.strip_suffix("}")) else {
+            return Err("Benchmarks should be surrounded by '{' and '}'".to_string())
+        };
+    let benchmarks: HashSet<BenchmarkType> = benchmarks.split(',')
+        .map(|s| s.trim())
+        .map(|s| BenchmarkType::from_str(s).unwrap())
+        .collect();
+
+    if benchmarks.len() == 0 { return Ok(BenchmarkSelection::None) }
+    Ok(BenchmarkSelection::Some(benchmarks))
+}
+
+pub fn init_verbose(verbose: u8) {
     let level = match verbose {
         1 => LevelFilter::Warn,
         2 => LevelFilter::Info,

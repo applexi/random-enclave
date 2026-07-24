@@ -4,6 +4,7 @@ use aws_nitro_enclaves_cose::{crypto::{Openssl}, header_map::HeaderMap};
 use serde_bytes::ByteBuf;
 use serde_cbor::Value;
 use openssl::{asn1::Asn1Time, bn::{BigNum, MsbOption}, ec::{EcGroup, EcKey}, hash::MessageDigest, nid::Nid, pkey::{PKey, Private}, x509::{X509Builder, X509Name}};
+use crate::{BenchmarkSelection, shares_from_path, attestation_from_path};
 
 const TIMES: usize = 20;
 
@@ -37,6 +38,7 @@ fn paths() -> Result<(Vec<PathBuf>, Vec<PathBuf>, Vec<(PathBuf, PathBuf)>), Erro
 #[test]
 /// Checks that all paths used in `paths()` are valid
 fn verify_init() -> Result<(), Error> {
+    let mut logger = LogConstructor::new(BenchmarkSelection::None, 0);
     let (bin_paths, _, shares_paths) = paths()?;
     let bin_paths = &bin_paths[1..];
     let shares_paths = &shares_paths[1..];
@@ -48,7 +50,7 @@ fn verify_init() -> Result<(), Error> {
         };
         let (signed_shares, enc_shares) = shares_from_path(&signed_path, &enc_path)?;
         let input = SessionInput { session_id, pcrs: None };
-        verify_session(&attestation_blob, &signed_shares, &enc_shares, &input)?;
+        verify_session(&attestation_blob, &signed_shares, &enc_shares, &input, &mut logger)?;
     }
     Ok(())
 }
@@ -56,6 +58,7 @@ fn verify_init() -> Result<(), Error> {
 #[test]
 /// Given a path to a valid attestation, test AWS attestation verification by changing random bits and running verification
 fn random_mutate_test() -> Result<(), Error> {
+    let mut logger = LogConstructor::new(BenchmarkSelection::None, 0);
     let (bin_paths, _, _) = paths()?;
     let path = &bin_paths[1];
 
@@ -73,7 +76,7 @@ fn random_mutate_test() -> Result<(), Error> {
     let Some(doc) = SecureModule::parse_raw_attestation_doc(&blob).ok() else {
         return Ok(())
     };
-    let Err(_) = verify_aws_attestation(&blob, &doc) else {
+    let Err(_) = verify_aws_attestation(&blob, &doc, &mut logger) else {
         return Err(Error::Test("Mutations should have resulted in a verification failure".to_string()))
     };
     Ok(())
@@ -132,6 +135,7 @@ fn evil_certs() -> Result<(X509, PKey<Private>), Error> {
 #[test]
 /// Given paths to valid attestations, test all possibilities of an adversary swapping out CBOR fields (specifically payload and/or signature)
 fn cbor_swap_test() -> Result<(), Error> {
+    let mut logger = LogConstructor::new(BenchmarkSelection::None, 0);
     let (bin_paths, _, _) = paths()?;
     let path_a = &bin_paths[1];
     let path_b = &bin_paths[2];
@@ -145,7 +149,7 @@ fn cbor_swap_test() -> Result<(), Error> {
         let temp_doc_a = SecureModule::parse_raw_attestation_doc(&temp_blob_a)?;
         if i < 2 {
             // Swapping out valid protected and unprotected fields of two valid attestations should pass verification
-            verify_aws_attestation(&temp_blob_a, &temp_doc_a)?;
+            verify_aws_attestation(&temp_blob_a, &temp_doc_a, &mut logger)?;
         } else {
             // Swapping out a payload/signature, even if the other payload/signature is valid, should error
             verify_certificate_chain(&temp_doc_a)?; // Should still pass certificate chain
@@ -185,6 +189,7 @@ fn cbor_swap_test() -> Result<(), Error> {
 #[test]
 /// Test a debug-mode attestation (all-zero PCRs)
 fn debug_attestation_test() -> Result<(), Error> {
+    let mut logger = LogConstructor::new(BenchmarkSelection::None, 0);
     let (bin_paths, _, _) = paths()?;
     let debug_bin = &bin_paths[0];
 
@@ -192,7 +197,7 @@ fn debug_attestation_test() -> Result<(), Error> {
     let attestation = SecureModule::parse_raw_attestation_doc(&attestation_blob)?;
 
     // A debug-mode attestation should still be a valid attestation
-    verify_aws_attestation(&attestation_blob, &attestation)?;
+    verify_aws_attestation(&attestation_blob, &attestation, &mut logger)?;
     // But should fail all-zero PCR check
     let Err(_) = verify_pcrs(&attestation, &None) else {
         return Err(Error::Test("Should fail when PCRs are all zero".to_string()))

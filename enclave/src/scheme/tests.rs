@@ -2,12 +2,14 @@ use super::*;
 use std::collections::HashSet;
 use getrandom::SysRng;
 use ed25519_dalek::Verifier;
+use crate::BenchmarkSelection;
 use ecies::{PublicKey, SecretKey, decrypt, utils::generate_keypair};
 
 const TIMES: u64 = 20;
 
 #[test]
 fn signing_correct_batch() {
+    let mut logger = LogConstructor::new(BenchmarkSelection::None, 0);
     let arithmetic = ArithmeticSharing::new();
     let binary = BinarySharing::new();
     let mut rng = SysRng;
@@ -26,7 +28,7 @@ fn signing_correct_batch() {
             .map(|sk| &sk.as_bytes()[..])
             .collect();
 
-        let Ok((enclave_pk, shares_signed, shares_enc)) = enclave_session(&arithmetic, &binary, &mut rng, &party_pks) else {
+        let Ok((enclave_pk, shares_signed, shares_enc)) = enclave_session(&arithmetic, &binary, &mut rng, &party_pks, &mut logger) else {
             panic!("Enclave_session did not return expected output")
         };
         // Enclave's public key should be randomly generated every time, and thus should be unique

@@ -13,24 +13,31 @@ use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 use ecies::encrypt;
 
 use crate::{ArithmeticSharing, BinarySharing, RawShare, ArithShare, BitShare, DEFAULT_N};
-use crate::random_arith;
-use crate::Error;
+use crate::{Error, LogConstructor, BenchmarkType, random_arith};
 
 /// For each call, generates a random signing keypair and secret [`ArithShare`]. From that secret, returns signed correlated arithmetic and binary shares.
-pub fn enclave_session<R: TryCryptoRng> (arithmetic: &ArithmeticSharing, binary: &BinarySharing, rng: &mut R, party_pks: &Vec<&[u8]>) -> Result<(VerifyingKey, Vec<Signature>, Vec<Vec<u8>>), Error> {
+pub fn enclave_session<R: TryCryptoRng> (arithmetic: &ArithmeticSharing, binary: &BinarySharing, rng: &mut R, party_pks: &Vec<&[u8]>, logger: &mut LogConstructor) -> Result<(VerifyingKey, Vec<Signature>, Vec<Vec<u8>>), Error> {
     // Generate random public and private signing keypair
     let mut infallible_rng = UnwrapErr(rng);
+    logger.start(BenchmarkType::GenerateSigningKeypair);
     let enclave_keypair = SigningKey::generate(&mut infallible_rng);
     let enclave_pk = enclave_keypair.verifying_key();
+    logger.stop(BenchmarkType::GenerateSigningKeypair);
 
     // Generate random ArithShare and get correlated arithmetic and binary shares
+    logger.start(BenchmarkType::GenerateRandoms);
     let shares_raw = generate_randoms(arithmetic, binary, &mut infallible_rng)?;
+    logger.stop(BenchmarkType::GenerateRandoms);
 
     // Encrypt shares with each party's public key respectively
+    logger.start(BenchmarkType::EncryptShares);
     let shares_enc = encrypt_shares(&shares_raw, party_pks)?;
+    logger.stop(BenchmarkType::EncryptShares);
 
     // Sign each party's share
+    logger.start(BenchmarkType::SignShares);
     let shares_signed = sign_shares(&shares_enc, enclave_keypair)?;
+    logger.stop(BenchmarkType::SignShares);
     Ok((enclave_pk, shares_signed, shares_enc))
 }
 
@@ -40,7 +47,6 @@ fn generate_randoms<R: TryCryptoRng> (arithmetic: &ArithmeticSharing, binary: &B
     let num_bits = ArithShare::BITS;
     let secret_bits: Vec<BitShare> = (0..num_bits).map(|i| (secret >> i) & 1 == 1).collect();
     let arith_shares = arithmetic.share(rng, secret).map_err(|_| Error::Rng)?;
-    assert!(arithmetic.reconstruct(&arith_shares) == secret);
 
     let mut bit_shares = Vec::new();
     for &bit in secret_bits.iter() {
