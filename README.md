@@ -219,7 +219,7 @@ nitro-cli terminate-enclave --enclave-id <YOUR-ENCLAVE-ID>
 
 ## Benchmarking
 
-The crate comes with a benchmarking capability for specific functions, but the only current statistic right now is mean time.
+The crate comes with benchmarking for specific functions, but the only statistic right now is average time.
 
 For benchmarking, it's recommended that when you first run the cargo, you set verbosity to `-v`.
 
@@ -243,6 +243,7 @@ Here are the following possible values to `-b` / `--benchmarks`:
 Here are the following benchmark types:
 
 | Benchmark type | Meaning |
+|----------------|---------|
 | `get-signing-keypair` | Enclave, signing keypair generation |
 | `encrypt-shares` | Enclave, encrypt N shares |
 | `sign-shares` | Enclave, sign N shares |
