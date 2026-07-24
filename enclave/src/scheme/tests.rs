@@ -9,7 +9,7 @@ const TIMES: u64 = 20;
 
 #[test]
 fn signing_correct_batch() {
-    let mut logger = LogConstructor::new(BenchmarkSelection::None, 0);
+    let mut logger = LogConstructor::new(BenchmarkSelection::None, 0, 0);
     let arithmetic = ArithmeticSharing::new();
     let binary = BinarySharing::new();
     let mut rng = SysRng;

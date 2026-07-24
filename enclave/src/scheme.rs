@@ -19,25 +19,17 @@ use crate::{Error, LogConstructor, BenchmarkType, random_arith};
 pub fn enclave_session<R: TryCryptoRng> (arithmetic: &ArithmeticSharing, binary: &BinarySharing, rng: &mut R, party_pks: &Vec<&[u8]>, logger: &mut LogConstructor) -> Result<(VerifyingKey, Vec<Signature>, Vec<Vec<u8>>), Error> {
     // Generate random public and private signing keypair
     let mut infallible_rng = UnwrapErr(rng);
-    logger.start(BenchmarkType::GenerateSigningKeypair);
-    let enclave_keypair = SigningKey::generate(&mut infallible_rng);
+    let enclave_keypair = logger.benchmark(BenchmarkType::GenerateSigningKeypair, || SigningKey::generate(&mut infallible_rng));
     let enclave_pk = enclave_keypair.verifying_key();
-    logger.stop(BenchmarkType::GenerateSigningKeypair);
 
     // Generate random ArithShare and get correlated arithmetic and binary shares
-    logger.start(BenchmarkType::GenerateRandoms);
-    let shares_raw = generate_randoms(arithmetic, binary, &mut infallible_rng)?;
-    logger.stop(BenchmarkType::GenerateRandoms);
+    let shares_raw = logger.benchmark(BenchmarkType::GenerateRandoms, || generate_randoms(arithmetic, binary, &mut infallible_rng))?;
 
     // Encrypt shares with each party's public key respectively
-    logger.start(BenchmarkType::EncryptShares);
-    let shares_enc = encrypt_shares(&shares_raw, party_pks)?;
-    logger.stop(BenchmarkType::EncryptShares);
+    let shares_enc = logger.benchmark(BenchmarkType::EncryptShares, || encrypt_shares(&shares_raw, party_pks))?;
 
     // Sign each party's share
-    logger.start(BenchmarkType::SignShares);
-    let shares_signed = sign_shares(&shares_enc, enclave_keypair)?;
-    logger.stop(BenchmarkType::SignShares);
+    let shares_signed = logger.benchmark(BenchmarkType::SignShares, || sign_shares(&shares_enc, &enclave_keypair))?;
     Ok((enclave_pk, shares_signed, shares_enc))
 }
 
@@ -73,7 +65,7 @@ fn encrypt_shares(shares_raw: &Vec<RawShare>, party_pks: &Vec<&[u8]>) -> Result<
     Ok(enc_shares)
 }
 
-fn sign_shares(shares_enc: &Vec<Vec<u8>>, signing_key: SigningKey) -> Result<Vec<Signature>, serde_cbor::Error> {
+fn sign_shares(shares_enc: &Vec<Vec<u8>>, signing_key: &SigningKey) -> Result<Vec<Signature>, serde_cbor::Error> {
     let mut shares_signed: Vec<Signature> = Vec::new();
     for share in shares_enc {
         shares_signed.push(signing_key.sign(&share));

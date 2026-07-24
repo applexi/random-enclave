@@ -66,79 +66,37 @@ impl BenchmarkSelection {
 /// 
 /// Can be consumed to return all tracked benchmark [stats][`Stats`]
 pub struct LogConstructor {
-    target_count: u32,
-    cur_count: u32,
+    warmup_count: u32,
+    num_count: u32,
     benchmark_perms: BenchmarkSelection,
-    starts: HashMap<BenchmarkType, Instant>,
     logs: HashMap<BenchmarkType, Duration>,
 }
 
 impl LogConstructor {
     /// Construct a new logger with specific [benchmark permissions][`LogConstructor::benchmark_perms`] and a target count
-    pub fn new(benchmark_perms: BenchmarkSelection, target_count: u32) -> Self {
-        LogConstructor{ target_count, cur_count: 0, benchmark_perms, starts: HashMap::new(), logs: HashMap::new() }
+    pub fn new(benchmark_perms: BenchmarkSelection, warmup_count: u32, num_count: u32) -> Self {
+        LogConstructor{ warmup_count, num_count, benchmark_perms, logs: HashMap::new() }
     }
-    /// Clears logger while keeping the same benchmark permissions and target count
-    pub fn clear(&mut self) {
-        self.cur_count = 0;
-        self.starts.clear();
-        self.logs.clear();
-    }
-    /// Begin a benchmark type's clock 
-    /// 
-    /// Does nothing if the logger's [benchmark permission][`LogConstructor::benchmark_perms`] doesn't include`benchmark_type`
-    /// 
-    /// Does nothing if start was already called for that `benchmark_type`
-    pub fn start(&mut self, benchmark_type: BenchmarkType) {
-        if self.benchmark_perms.contains(benchmark_type) && !self.starts.contains_key(&benchmark_type) {
-            let new_start = Instant::now();
-            self.starts.insert(benchmark_type, new_start);
+
+    /// Benchmark a function
+    pub fn benchmark<F: FnMut() -> T, T>(&mut self, benchmark_type: BenchmarkType, mut op: F) -> T {
+        if self.num_count == 0 || !self.benchmark_perms.contains(benchmark_type) {
+            return op()
         }
-    }
-    /// Stops a benchmark type's clock and logs time elapsed if current round count is the target count
-    /// 
-    /// Returns `None` if [start][`LogConstructor::start`] for benchmark type has not been set before
-    pub fn stop(&mut self, benchmark_type: BenchmarkType) -> Option<()> {
-        let Some(prev_start) = self.starts.get(&benchmark_type) else {
-            return None
-        };
-        self.cur_count += 1;
-        if self.cur_count == self.target_count && self.target_count != 0 {
-            self.logs.insert(benchmark_type, prev_start.elapsed().div_f32(self.target_count as f32));
+        let mut start = Instant::now();
+        for i in 0..(self.warmup_count + self.num_count) {
+            if i == self.warmup_count { start = Instant::now(); }
+            std::hint::black_box(op());
         }
-        Some(())
+        self.logs.insert(benchmark_type, start.elapsed().div_f32(self.num_count as f32));
+        op()
     }
+
     /// Consume the logger to obtain all its lifetime stats
     pub fn into_stats(self) -> HashMap<BenchmarkType, Duration> {
         self.logs
     }
 }
-
-/* #[derive(Default)]
-/// Uses Welford's online algorithm to calculate running stats
-struct LogUpdater {
-    cur_count: u128,
-    running_mean: f64,
-    running_m2: f64,
-}
-
-impl LogUpdater {
-    pub fn push(&mut self, x: u128) {
-        self.cur_count += 1;
-        let x = x as f64;
-        let delta = x - self.running_mean;
-        self.running_mean += delta / self.cur_count as f64;
-        let delta2 = x - self.running_mean;
-        self.running_m2 += delta * delta2;
-    }
-    pub fn to_stats(&self) -> Stats {
-        let mean = self.running_mean as u128;
-        let mut variance = 0u128;
-        if self.cur_count > 0 { variance = self.running_m2 as u128/ self.cur_count; }
-        let std = variance.isqrt();
-        Stats{ mean, variance, std }
-    }
-} */
 
 impl std::str::FromStr for BenchmarkType {
     type Err = String;

@@ -28,14 +28,13 @@ fn aws_root_cert_path() -> PathBuf {
 /// Given a binary blob attestation, checks if valid AWS attestation and if the attestation's measurements are expected respective to the enclave scheme
 pub fn verify_session(attestation_blob: &[u8], signed_shares: &Vec<Signature>, enc_shares: &Vec<Vec<u8>>, session_input: &SessionInput, logger: &mut LogConstructor) -> Result<(), Error> {
     let attestation = SecureModule::parse_raw_attestation_doc(attestation_blob)?;
-    verify_aws_attestation(attestation_blob, &attestation, logger)?;
-    verify_enclave_attestation(&attestation, signed_shares, enc_shares, session_input, logger)?;
+    logger.benchmark(BenchmarkType::VerifyAWSAttestation, || verify_aws_attestation(attestation_blob, &attestation))?;
+    logger.benchmark(BenchmarkType::VerifyEnclaveScheme, || verify_enclave_attestation(&attestation, signed_shares, enc_shares, session_input))?;
     Ok(())
 }
 
 /// Given an [`AttestationDoc`], checks if attestation is session and scheme correct, and if output is attested by the attestation
-pub fn verify_enclave_attestation(attestation: &AttestationDoc, signed_shares: &Vec<Signature>, enc_shares: &Vec<Vec<u8>>, session_input: &SessionInput, logger: &mut LogConstructor) -> Result<(), Error>{
-    logger.start(BenchmarkType::VerifyEnclaveScheme);
+pub fn verify_enclave_attestation(attestation: &AttestationDoc, signed_shares: &Vec<Signature>, enc_shares: &Vec<Vec<u8>>, session_input: &SessionInput) -> Result<(), Error>{
     info!("\nVerifying enclave scheme...");
     verify_enclave_signatures(attestation, signed_shares, enc_shares)?;
     trace!("-- Verified enclave's output was signed by the public key in the enclave's attestation!");
@@ -43,7 +42,6 @@ pub fn verify_enclave_attestation(attestation: &AttestationDoc, signed_shares: &
     trace!("-- Verified attestation's session ID is {:?}!", session_input.session_id);
     verify_pcrs(attestation, &session_input.pcrs)?;
     trace!("-- Verified attestation's PCRs are nonzero (and correct if random request included both PCR fields)!");
-    logger.stop(BenchmarkType::VerifyEnclaveScheme);
     // TODO: check if party public keys are consensus set
     Ok(())
 }
@@ -109,8 +107,7 @@ fn verify_enclave_signatures(attestation: &AttestationDoc, signed_shares: &Vec<S
 /// 
 /// Follows NSM documentation: 
 /// <https://github.com/aws/aws-nitro-enclaves-nsm-api/blob/1993eeb0620d35f5cefc50b17638b432325328f9/docs/attestation_process.md>
-pub fn verify_aws_attestation(attestation_blob: &[u8], attestation: &AttestationDoc, logger: &mut LogConstructor) -> Result<(), Error>{
-    logger.start(BenchmarkType::VerifyAWSAttestation);
+pub fn verify_aws_attestation(attestation_blob: &[u8], attestation: &AttestationDoc) -> Result<(), Error>{
     info!("\nVerifying attestation is valid AWS attestation...");
     // 2.2 Check attesation's fields' sizes (Note steps 1 and 2 are already done by pontifex parsing)
     if !validate_content(&attestation) { return Err(Error::AttestVerify("Attestation's field sizes are incorrect".to_string())); }
@@ -120,7 +117,6 @@ pub fn verify_aws_attestation(attestation_blob: &[u8], attestation: &Attestation
     // 4. Ensure Signed Attestation Document was correctly signed
     verify_aws_signature(attestation_blob, &attestation)?;
     trace!("-- Verified attestation was signed by AWS!");
-    logger.stop(BenchmarkType::VerifyAWSAttestation);
     Ok(())
 }
 

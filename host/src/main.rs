@@ -8,7 +8,7 @@ use clap::Parser;
 use host::{BenchmarkSelection, CliHost, CliInit, RequestType, get_line, init_verbose, shares_from_path};
 use host::{Error, SessionInput, generate_n_keys, decrypt_shares, verify_session, verify_aws_attestation, verify_enclave_attestation};
 use host::{save_output, attestation_from_path, save_benchmarks};
-use common::{SessionRequest, ENCLAVE_PORT, benchmark::{LogConstructor, BenchmarkRequest}};
+use common::{SessionRequest, ENCLAVE_PORT, benchmark::{LogConstructor, BenchmarkRequest, BenchmarkType}};
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -31,7 +31,7 @@ async fn main() -> Result<(), Error> {
                 if benchmark_perms != BenchmarkSelection::None {
                     benchmark_request = Some(BenchmarkRequest{ benchmark_selection: benchmark_perms.clone(), warmup_rounds: input.warmup_rounds, num_rounds: input.num_rounds });
                 }
-                let mut logger = LogConstructor::new(benchmark_perms, input.num_rounds);
+                let mut logger = LogConstructor::new(benchmark_perms, input.warmup_rounds, input.num_rounds);
 
                 info!("\nEnclave called with session id: {:?}", input.session_id);
                 let session_id = input.session_id;
@@ -63,14 +63,11 @@ async fn main() -> Result<(), Error> {
                     .map(|share| Signature::from_bytes(&ByteArray::into_array(*share)))
                     .collect();
                 let enc_shares = response.enc_shares;
-                for i in 0..(input.warmup_rounds + input.num_rounds) {
-                    if i == input.warmup_rounds { logger.clear(); }
 
-                    // Verify attestation
-                    if let Err(e) = verify_session(&attestation_blob, &signed_shares, &enc_shares, &session_input, &mut logger) {
-                        warn!("FAILED: Verification failed with error {e:?}");
-                    } else { info!("\nSUCCESS: Verification successful!"); }
-                }
+                // Verify attestation
+                if let Err(e) = verify_session(&attestation_blob, &signed_shares, &enc_shares, &session_input, &mut logger) {
+                    warn!("FAILED: Verification failed with error {e:?}");
+                } else { info!("\nSUCCESS: Verification successful!"); }
 
                 // Decrypt shares
                 match decrypt_shares(&enc_shares, &party_sks) {
@@ -99,7 +96,7 @@ async fn main() -> Result<(), Error> {
             }
             RequestType::Verify => {
                 let benchmark_perms = input.benchmark_types;
-                let mut logger = LogConstructor::new(benchmark_perms, input.num_rounds);
+                let mut logger = LogConstructor::new(benchmark_perms, input.warmup_rounds, input.num_rounds);
 
                 let Some(attest_path) = input.attest_path else {
                     warn!("\nERROR: Attestation path required for verification");
@@ -122,33 +119,24 @@ async fn main() -> Result<(), Error> {
                         continue
                     };
                     if is_bin {
-                        for i in 0..(input.warmup_rounds + input.num_rounds) {
-                            if i == input.warmup_rounds { logger.clear(); }
-                            if let Err(e) = verify_session(&attestation_blob, &signed_shares, &enc_shares, &session_input, &mut logger) {
-                                warn!("\nFAILED: Verification failed with error {e:?}");
-                                continue
-                            }
+                        if let Err(e) = verify_session(&attestation_blob, &signed_shares, &enc_shares, &session_input, &mut logger) {
+                            warn!("\nFAILED: Verification failed with error {e:?}");
+                            continue
                         }
                     } else {
                         info!("\nNote: Attestation path given is (.json) not (.bin). Can only assume attestation was valid, and verify enclave scheme.");
                         let attestation: AttestationDoc = serde_json::from_slice(&attestation_blob)?;
-                        for i in 0..(input.warmup_rounds + input.num_rounds) {
-                            if i == input.warmup_rounds { logger.clear(); }
-                            if let Err(e) = verify_enclave_attestation(&attestation, &signed_shares, &enc_shares, &session_input, &mut logger) {
-                                warn!("\nFAILED: Verification failed with error {e:?}");
-                                continue
-                            }
+                        if let Err(e) = logger.benchmark(BenchmarkType::VerifyEnclaveScheme, || verify_enclave_attestation(&attestation, &signed_shares, &enc_shares, &session_input)) {
+                            warn!("\nFAILED: Verification failed with error {e:?}");
+                            continue
                         }
                     }
                 } else if is_bin {
                     info!("\nNote: Only given an attestation path with no shares paths. Will only verify if attestation is valid.");
                     let attestation = pontifex::SecureModule::parse_raw_attestation_doc(&attestation_blob)?;
-                    for i in 0..(input.warmup_rounds + input.num_rounds) {
-                        if i == input.warmup_rounds { logger.clear(); }
-                        if let Err(e) = verify_aws_attestation(&attestation_blob, &attestation, &mut logger) {
-                            warn!("\nFAILED: Verification failed with error {e:?}");
-                            continue
-                        }
+                    if let Err(e) = logger.benchmark(BenchmarkType::VerifyAWSAttestation, || verify_aws_attestation(&attestation_blob, &attestation)) {
+                        warn!("\nFAILED: Verification failed with error {e:?}");
+                        continue
                     }
                 } else {
                     warn!("\nWARNING: No verification could be done with the parameters given.");
