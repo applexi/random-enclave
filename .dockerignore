@@ -5,3 +5,5 @@ Dockerfile
 *.eif
 **/verify_scheme/
 **/scheme/
+**/enclave-output/
+**/benchmarks/

@@ -1,3 +1,5 @@
 /target
 */target
 *.eif
+**/enclave-output/
+**/benchmarks/
